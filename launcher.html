@@ -1,0 +1,995 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>OTH Client Launcher</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+      background: #000000;
+      color: #ffffff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+      overflow: hidden;
+    }
+
+    .window-controls {
+      position: fixed;
+      top: 0;
+      right: 0;
+      left: 0;
+      height: 32px;
+      background: #000000;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 0 1rem;
+      -webkit-app-region: drag;
+      z-index: 1000;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+    }
+
+    .window-title {
+      font-size: 0.875rem;
+      color: rgba(255, 255, 255, 0.7);
+      font-weight: 500;
+    }
+
+    .window-buttons {
+      display: flex;
+      gap: 0.5rem;
+      -webkit-app-region: no-drag;
+    }
+
+    .window-button {
+      width: 28px;
+      height: 28px;
+      border: none;
+      background: transparent;
+      color: rgba(255, 255, 255, 0.7);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 0.25rem;
+      transition: all 0.2s;
+    }
+
+    .window-button:hover {
+      background: rgba(255, 255, 255, 0.1);
+      color: #ffffff;
+    }
+
+    .window-button.close:hover {
+      background: #dc2626;
+      color: #ffffff;
+    }
+
+    .launcher-container {
+      text-align: center;
+      max-width: 420px;
+      padding: 2rem;
+      width: 100%;
+      margin-top: 32px;
+    }
+
+    .card {
+      background: #000000;
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      border-radius: 0.5rem;
+      padding: 2rem;
+    }
+
+    .logo {
+      font-size: 3rem;
+      font-weight: 700;
+      margin-bottom: 0.5rem;
+      color: #ffffff;
+    }
+
+    .subtitle {
+      font-size: 1rem;
+      color: rgba(255, 255, 255, 0.7);
+      margin-bottom: 2rem;
+      font-weight: 400;
+    }
+
+    .card-title {
+      font-size: 1.875rem;
+      font-weight: 700;
+      color: #ffffff;
+      margin-bottom: 0.5rem;
+    }
+
+    .card-title.hidden {
+      display: none;
+    }
+
+    .card-description {
+      font-size: 0.875rem;
+      color: rgba(255, 255, 255, 0.7);
+      margin-bottom: 2rem;
+    }
+
+    .card-description.hidden {
+      display: none;
+    }
+
+    .login-form {
+      display: block;
+      text-align: left;
+    }
+
+    .login-form.hidden {
+      display: none;
+    }
+
+    .form-group {
+      margin-bottom: 1rem;
+    }
+
+    .form-label {
+      display: block;
+      font-size: 0.875rem;
+      color: #ffffff;
+      margin-bottom: 0.5rem;
+      font-weight: 500;
+    }
+
+    .form-input-wrapper {
+      position: relative;
+    }
+
+    .form-input {
+      width: 100%;
+      padding: 0.625rem 0.75rem;
+      background: rgba(255, 255, 255, 0.1);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      border-radius: 0.375rem;
+      color: #ffffff;
+      font-size: 0.875rem;
+      transition: all 0.2s;
+    }
+
+    .form-input::placeholder {
+      color: rgba(255, 255, 255, 0.5);
+    }
+
+    .form-input:focus {
+      outline: none;
+      border-color: #ffffff;
+      background: rgba(255, 255, 255, 0.15);
+    }
+
+    .password-toggle {
+      position: absolute;
+      right: 0.75rem;
+      top: 50%;
+      transform: translateY(-50%);
+      background: none;
+      border: none;
+      color: rgba(255, 255, 255, 0.5);
+      cursor: pointer;
+      padding: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .password-toggle:hover {
+      color: #ffffff;
+    }
+
+    .login-button {
+      background: #ffffff;
+      color: #000000;
+      border: none;
+      padding: 0.625rem 0.75rem;
+      font-size: 0.875rem;
+      font-weight: 600;
+      border-radius: 0.375rem;
+      cursor: pointer;
+      transition: all 0.2s;
+      width: 100%;
+      margin-top: 1rem;
+    }
+
+    .login-button:hover {
+      background: rgba(255, 255, 255, 0.9);
+    }
+
+    .login-button:active {
+      transform: scale(0.98);
+    }
+
+    .login-button:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+      transform: none;
+      background: rgba(255, 255, 255, 0.5);
+    }
+
+    .register-link {
+      margin-top: 1.5rem;
+      text-align: center;
+      font-size: 0.875rem;
+      color: rgba(255, 255, 255, 0.7);
+    }
+
+    .register-link a {
+      color: #ffffff;
+    }
+
+    .register-link a:hover {
+      color: rgba(255, 255, 255, 0.9);
+    }
+
+    .loading {
+      display: none;
+      margin-top: 2rem;
+    }
+
+    .loading.active {
+      display: block;
+    }
+
+    .loading-text {
+      color: rgba(255, 255, 255, 0.7);
+      font-size: 0.875rem;
+      margin-top: 1rem;
+    }
+
+    .spinner {
+      border: 3px solid rgba(255, 255, 255, 0.2);
+      border-top: 3px solid #ffffff;
+      border-radius: 50%;
+      width: 40px;
+      height: 40px;
+      animation: spin 1s linear infinite;
+      margin: 0 auto;
+    }
+
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+
+    .error {
+      display: none;
+      margin-top: 1rem;
+      padding: 0.75rem;
+      background: rgba(239, 68, 68, 0.1);
+      border: 1px solid rgba(239, 68, 68, 0.2);
+      border-radius: 0.375rem;
+      color: #fca5a5;
+      font-size: 0.875rem;
+      line-height: 1.5;
+    }
+
+    .error.active {
+      display: block;
+    }
+
+    .success {
+      display: none;
+      margin-top: 1rem;
+      padding: 0.75rem;
+      background: rgba(34, 197, 94, 0.1);
+      border: 1px solid rgba(34, 197, 94, 0.2);
+      border-radius: 0.375rem;
+      color: #86efac;
+      font-size: 0.875rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .success.active {
+      display: flex;
+    }
+  </style>
+</head>
+<body>
+  <div class="window-controls">
+    <div class="window-title">OTH Desktop Client</div>
+    <div class="window-buttons">
+      <button class="window-button" id="minimizeBtn" title="Minimize">
+        <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+          <rect y="5" width="12" height="2" fill="currentColor"/>
+        </svg>
+      </button>
+      <button class="window-button" id="maximizeBtn" title="Maximize">
+        <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+          <rect x="1" y="1" width="10" height="10" stroke="currentColor" stroke-width="1.5" fill="none"/>
+        </svg>
+      </button>
+      <button class="window-button close" id="closeBtn" title="Close">
+        <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+          <path d="M1 1L11 11M11 1L1 11" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+        </svg>
+      </button>
+    </div>
+  </div>
+
+  <div class="launcher-container">
+    <div class="logo">OTH</div>
+    <div class="subtitle">Desktop Client</div>
+
+    <div class="card">
+      <div class="card-title hidden" id="cardTitle">Welcome Back</div>
+      <div class="card-description hidden" id="cardDescription">Sign in to your OTH account</div>
+
+      <form class="login-form hidden" id="loginForm">
+        <div class="form-group">
+          <label class="form-label" for="email">Email</label>
+          <input 
+            type="email" 
+            id="email" 
+            class="form-input" 
+            placeholder="Enter your email"
+            required
+          />
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="password">Password</label>
+          <div class="form-input-wrapper">
+            <input 
+              type="password" 
+              id="password" 
+              class="form-input" 
+              placeholder="Enter your password"
+              required
+            />
+            <button type="button" class="password-toggle" id="passwordToggle">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" id="eyeIcon">
+                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                <circle cx="12" cy="12" r="3"></circle>
+              </svg>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" id="eyeOffIcon" style="display: none;">
+                <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path>
+                <line x1="1" y1="1" x2="23" y2="23"></line>
+              </svg>
+            </button>
+          </div>
+        </div>
+
+        <div class="error" id="error">
+          <span id="error-text"></span>
+        </div>
+
+        <button type="submit" class="login-button" id="loginButton" disabled>
+          Sign In
+        </button>
+        
+        <div class="connection-notice" id="connectionNotice" style="display: block; margin-top: 0.75rem; text-align: center; font-size: 0.75rem; color: rgba(255, 255, 255, 0.5);">
+          Waiting for server connection...
+        </div>
+
+        <div class="register-link">
+          Don't have an account? <a href="#" id="registerLink">Sign up here</a>
+        </div>
+      </form>
+
+      <div class="loading active" id="loading">
+        <div class="spinner"></div>
+        <div class="loading-text" id="loadingText">Connecting to OTH...</div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Global error handler to prevent unhandled promise rejection warnings
+    window.addEventListener('unhandledrejection', (event) => {
+      // Log the error but prevent it from showing in console repeatedly
+      console.error('Caught unhandled rejection:', event.reason);
+      event.preventDefault();
+    });
+
+    // Validate credentials with the server
+    async function validateCredentials(email, password) {
+      try {
+        const response = await fetch(`${STORE_URL}/api/auth/validate`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ email, password })
+        });
+
+        const data = await response.json();
+        return data;
+      } catch (error) {
+        console.error('Validation request failed:', error);
+        return { success: false, error: 'Unable to connect to authentication server' };
+      }
+    }
+    const STORE_URL = 'http://localhost:3000';
+    const MAX_RETRY_DELAY = 30000; // Max 30 seconds between retries
+    const INITIAL_RETRY_DELAY = 2000; // Start with 2 seconds
+    let currentRetryDelay = INITIAL_RETRY_DELAY;
+    let retryCount = 0;
+    let retryTimeout = null;
+    let onConnectionSuccess = null; // Callback to run when connection succeeds
+
+    // Check server connection (Discord-style continuous retry)
+    async function checkServerConnection(isRetry = false) {
+      retryCount++;
+      
+      const loadingText = document.getElementById('loadingText');
+      if (isRetry) {
+        loadingText.textContent = `Connecting... (Attempt ${retryCount})`;
+      } else {
+        loadingText.textContent = 'Connecting to OTH...';
+      }
+
+      try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 second timeout
+        
+        const response = await fetch(STORE_URL, {
+          method: 'HEAD',
+          signal: controller.signal
+        });
+        
+        clearTimeout(timeoutId);
+        const isConnected = response.ok || response.status < 500;
+        
+        if (isConnected) {
+          // Reset retry delay on successful connection
+          currentRetryDelay = INITIAL_RETRY_DELAY;
+          retryCount = 0;
+          
+          // If there's a callback waiting, run it
+          if (onConnectionSuccess) {
+            const callback = onConnectionSuccess;
+            onConnectionSuccess = null; // Clear it
+            await callback();
+          }
+          
+          return true;
+        }
+        
+        // Server returned error, schedule retry
+        scheduleRetry();
+        return false;
+      } catch (error) {
+        console.error(`Connection attempt ${retryCount} failed:`, error);
+        
+        // Connection failed, schedule retry
+        scheduleRetry();
+        return false;
+      }
+    }
+
+    // Schedule next retry attempt with countdown
+    function scheduleRetry() {
+      const loadingText = document.getElementById('loadingText');
+      let secondsLeft = Math.floor(currentRetryDelay / 1000);
+      
+      // Show countdown
+      const updateCountdown = () => {
+        if (secondsLeft > 0) {
+          loadingText.textContent = `Connection failed. Retrying in ${secondsLeft} second${secondsLeft !== 1 ? 's' : ''}...`;
+          secondsLeft--;
+          setTimeout(updateCountdown, 1000);
+        } else {
+          // Time to retry
+          checkServerConnection(true);
+        }
+      };
+      
+      updateCountdown();
+      
+      // Increase delay for next retry (exponential backoff, max 30 seconds)
+      currentRetryDelay = Math.min(currentRetryDelay * 1.5, MAX_RETRY_DELAY);
+    }
+
+    // Retry connection manually (reset retry count and delay)
+    async function retryConnection() {
+      const loading = document.getElementById('loading');
+      const loadingText = document.getElementById('loadingText');
+      const cardTitle = document.getElementById('cardTitle');
+      const cardDescription = document.getElementById('cardDescription');
+      
+      loading.classList.add('active');
+      cardTitle.classList.add('hidden');
+      cardDescription.classList.add('hidden');
+      
+      // Reset retry state
+      currentRetryDelay = INITIAL_RETRY_DELAY;
+      retryCount = 0;
+      
+      loadingText.textContent = 'Connecting to OTH...';
+      
+      const isConnected = await checkServerConnection(false);
+      
+      if (isConnected) {
+        // Continue with login flow
+        const hadSession = await continueAfterConnection();
+        if (!hadSession) {
+          // Show login form
+          loading.classList.remove('active');
+          cardTitle.classList.remove('hidden');
+          cardDescription.classList.remove('hidden');
+          document.getElementById('loginForm').classList.remove('hidden');
+        }
+      }
+      // If not connected, it will automatically retry via scheduleRetry()
+    }
+
+    // Window controls
+    if (window.electronAPI) {
+      document.getElementById('minimizeBtn').addEventListener('click', () => {
+        window.electronAPI.minimizeWindow();
+      });
+
+      document.getElementById('maximizeBtn').addEventListener('click', () => {
+        window.electronAPI.maximizeWindow();
+      });
+
+      document.getElementById('closeBtn').addEventListener('click', () => {
+        window.electronAPI.closeWindow();
+      });
+    }
+
+    // Check if user is already logged in on app start
+    async function checkExistingSession() {
+      const loading = document.getElementById('loading');
+      const loadingText = document.getElementById('loadingText');
+      const cardTitle = document.getElementById('cardTitle');
+      const cardDescription = document.getElementById('cardDescription');
+      
+      loading.classList.add('active');
+      loadingText.textContent = 'Connecting to OTH...';
+      
+      const isConnected = await checkServerConnection(false);
+      
+      if (!isConnected) {
+        // Set callback to run when connection eventually succeeds
+        onConnectionSuccess = async () => {
+          await continueAfterConnection();
+        };
+        // Will keep retrying automatically via scheduleRetry()
+        return true; // Return true to prevent showing login form
+      }
+      
+      // Check if there was a previous login failure flag
+      const hadLoginFailure = localStorage.getItem('electron-login-failed');
+      if (hadLoginFailure === 'true') {
+        console.log('Clearing credentials due to previous login failure');
+        // Clear the flag
+        localStorage.removeItem('electron-login-failed');
+        // Clear any stored credentials
+        localStorage.removeItem('electron-login-credentials');
+        // Clear Electron credentials with timeout to avoid blocking
+        setTimeout(() => {
+          if (window.electronAPI && window.electronAPI.clearCredentials) {
+            window.electronAPI.clearCredentials().catch(err => {
+              console.error('Failed to clear credentials:', err);
+            });
+          }
+        }, 100);
+      }
+      
+      return continueAfterConnection();
+    }
+
+    // Continue after successful connection
+    async function continueAfterConnection() {
+      const loading = document.getElementById('loading');
+      const loadingText = document.getElementById('loadingText');
+      const loginForm = document.getElementById('loginForm');
+      const cardTitle = document.getElementById('cardTitle');
+      const cardDescription = document.getElementById('cardDescription');
+      
+      // First check for stored encrypted credentials
+      let credsResult;
+      try {
+        // Add timeout to prevent hanging on IPC call
+        const timeoutPromise = new Promise((resolve) => {
+          setTimeout(() => resolve({ success: false }), 3000);
+        });
+        const credsPromise = window.electronAPI.getCredentials();
+        credsResult = await Promise.race([credsPromise, timeoutPromise]);
+      } catch (err) {
+        console.error('Failed to get credentials:', err);
+        credsResult = { success: false };
+      }
+      
+      if (credsResult.success && credsResult.credentials) {
+        // We have saved credentials, auto-login
+        loginForm.classList.add('hidden');
+        loading.classList.add('active');
+        loadingText.textContent = 'Validating saved credentials...';
+
+        try {
+          // Validate credentials with the server FIRST
+          const validation = await validateCredentials(
+            credsResult.credentials.email, 
+            credsResult.credentials.password
+          );
+          
+          if (!validation.success) {
+            // Invalid stored credentials - clear them
+            throw new Error('Saved credentials are no longer valid');
+          }
+
+          loadingText.textContent = 'Signing you in automatically...';
+
+          // Store credentials for Next.js app
+          localStorage.setItem('electron-login-credentials', JSON.stringify(credsResult.credentials));
+
+          loadingText.textContent = 'Connecting to OTH Store...';
+          const result = await window.electronAPI.connectToStore(credsResult.credentials).catch(err => {
+            console.error('Failed to connect to store:', err);
+            return { success: false, message: err.message };
+          });
+          if (result && result.success) {
+            loadingText.textContent = 'Launching application...';
+            // Don't set failure flag here - let the app handle login
+          } else {
+            throw new Error(result?.message || 'Failed to connect');
+          }
+        } catch (err) {
+          console.error('Auto-login error:', err);
+          
+          // Set failure flag so credentials are cleared on next startup
+          localStorage.setItem('electron-login-failed', 'true');
+          
+          // Clear saved credentials
+          localStorage.removeItem('electron-login-credentials');
+          
+          // Clear Electron stored credentials
+          if (window.electronAPI && window.electronAPI.clearCredentials) {
+            window.electronAPI.clearCredentials().catch(clearErr => {
+              console.error('Failed to clear credentials:', clearErr);
+            });
+          }
+          
+          loading.classList.remove('active');
+          cardTitle.classList.remove('hidden');
+          cardDescription.classList.remove('hidden');
+          loginForm.classList.remove('hidden');
+          
+          // Enable login button
+          const loginButton = document.getElementById('loginButton');
+          const connectionNotice = document.getElementById('connectionNotice');
+          if (loginButton) {
+            loginButton.disabled = false;
+          }
+          if (connectionNotice) {
+            connectionNotice.style.display = 'none';
+          }
+          
+          const errorElem = document.getElementById('error');
+          const errorTextElem = document.getElementById('error-text');
+          errorElem.classList.add('active');
+          errorTextElem.textContent = err.message || 'Auto-login failed. Your saved credentials may be invalid. Please sign in again.';
+        }
+        return true;
+      }
+      
+      // Check if we have stored auth session (this would be set by Next.js)
+      const hasSession = localStorage.getItem('electron-has-session') === 'true' ||
+                        localStorage.getItem('next-auth.session-token') || 
+                        localStorage.getItem('__Secure-next-auth.session-token') ||
+                        document.cookie.includes('next-auth.session-token');
+      
+      if (hasSession) {
+        // User is already logged in, skip login form and connect directly
+        loginForm.classList.add('hidden');
+        loading.classList.add('active');
+        loadingText.textContent = 'Reconnecting to your session...';
+
+        try {
+          const result = await window.electronAPI.connectToStore().catch(err => {
+            console.error('Failed to connect to store:', err);
+            return { success: false, message: err.message };
+          });
+          if (result && result.success) {
+            loadingText.textContent = 'Launching application...';
+          } else {
+            throw new Error(result?.message || 'Failed to connect');
+          }
+        } catch (err) {
+          console.error('Reconnection error:', err);
+          // If reconnection fails, show login form
+          loading.classList.remove('active');
+          cardTitle.classList.remove('hidden');
+          cardDescription.classList.remove('hidden');
+          loginForm.classList.remove('hidden');
+        }
+        return true;
+      }
+      
+      // No existing session, hide loading and show login form
+      loading.classList.remove('active');
+      cardTitle.classList.remove('hidden');
+      cardDescription.classList.remove('hidden');
+      loginForm.classList.remove('hidden');
+      
+      // Enable login button now that we're connected
+      const loginButton = document.getElementById('loginButton');
+      const connectionNotice = document.getElementById('connectionNotice');
+      if (loginButton) {
+        loginButton.disabled = false;
+      }
+      if (connectionNotice) {
+        connectionNotice.style.display = 'none';
+      }
+      
+      return false;
+    }
+
+    // Password toggle
+    const passwordInput = document.getElementById('password');
+    const passwordToggle = document.getElementById('passwordToggle');
+    const eyeIcon = document.getElementById('eyeIcon');
+    const eyeOffIcon = document.getElementById('eyeOffIcon');
+
+    passwordToggle.addEventListener('click', () => {
+      if (passwordInput.type === 'password') {
+        passwordInput.type = 'text';
+        eyeIcon.style.display = 'none';
+        eyeOffIcon.style.display = 'block';
+      } else {
+        passwordInput.type = 'password';
+        eyeIcon.style.display = 'block';
+        eyeOffIcon.style.display = 'none';
+      }
+    });
+
+    const loginForm = document.getElementById('loginForm');
+    const loginButton = document.getElementById('loginButton');
+    const loading = document.getElementById('loading');
+    const loadingText = document.getElementById('loadingText');
+    const error = document.getElementById('error');
+    const errorText = document.getElementById('error-text');
+    const registerLink = document.getElementById('registerLink');
+
+    // Check if we're in Electron
+    if (window.electronAPI) {
+      // Wait a bit for everything to initialize before checking session
+      setTimeout(() => {
+        // Check for existing session first
+        checkExistingSession().then((hadSession) => {
+          if (hadSession) {
+            // Already logged in, skip the rest
+            return;
+          }
+          
+          // No existing session, set up login form handlers
+          setupLoginHandlers();
+        }).catch(err => {
+          console.error('Session check error:', err);
+          // On error, just setup login handlers
+          setupLoginHandlers();
+        });
+      }, 500); // Wait 500ms for Electron to fully initialize
+    } else {
+      loginForm.classList.add('hidden');
+      error.classList.add('active');
+      errorText.textContent = 'Error: Not running in Electron environment';
+    }
+
+    function setupLoginHandlers() {
+      // Handle login form submission
+      loginForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        
+        // Check if button is disabled (no connection)
+        if (loginButton.disabled) {
+          error.classList.add('active');
+          errorText.textContent = 'Please wait for server connection before logging in.';
+          return;
+        }
+        
+        const email = document.getElementById('email').value;
+        const password = document.getElementById('password').value;
+        const cardTitle = document.getElementById('cardTitle');
+        const cardDescription = document.getElementById('cardDescription');
+
+        try {
+          loginButton.disabled = true;
+          loginForm.classList.add('hidden');
+          cardTitle.classList.add('hidden');
+          cardDescription.classList.add('hidden');
+          loading.classList.add('active');
+          error.classList.remove('active');
+          
+          // Reset retry state for fresh connection check
+          currentRetryDelay = INITIAL_RETRY_DELAY;
+          retryCount = 0;
+          loadingText.textContent = 'Connecting to OTH...';
+
+          // Check server connection first
+          const isConnected = await checkServerConnection(false);
+          
+          if (!isConnected) {
+            // Set callback to continue with login when connection succeeds
+            // Store credentials separately to avoid closure issues
+            const userEmail = email;
+            const userPassword = password;
+            
+            onConnectionSuccess = async () => {
+              const loadingElem = document.getElementById('loading');
+              const loadingTextElem = document.getElementById('loadingText');
+              const cardTitleElem = document.getElementById('cardTitle');
+              const cardDescElem = document.getElementById('cardDescription');
+              const loginFormElem = document.getElementById('loginForm');
+              const errorElem = document.getElementById('error');
+              const errorTextElem = document.getElementById('error-text');
+              const loginButtonElem = document.getElementById('loginButton');
+              
+              try {
+                loadingTextElem.textContent = 'Validating credentials...';
+
+                // Validate credentials with the server FIRST
+                const validation = await validateCredentials(userEmail, userPassword);
+                
+                if (!validation.success) {
+                  // Invalid credentials
+                  throw new Error(validation.error || 'Invalid credentials');
+                }
+
+                loadingTextElem.textContent = 'Authentication successful...';
+
+                // Store credentials temporarily (will be used by Next.js app)
+                localStorage.setItem('electron-login-credentials', JSON.stringify({ email: userEmail, password: userPassword }));
+
+                loadingTextElem.textContent = 'Connecting to OTH Store...';
+
+                // Connect to the store with credentials
+                const result = await window.electronAPI.connectToStore({ email: userEmail, password: userPassword }).catch(err => {
+                  console.error('Failed to connect to store:', err);
+                  return { success: false, message: err.message };
+                });
+
+                if (result && result.success) {
+                  loadingTextElem.textContent = 'Launching application...';
+                  
+                  // Clear any previous failure flags
+                  localStorage.removeItem('electron-login-failed');
+                  
+                  // Save credentials securely for next time (don't wait for login to complete)
+                  if (window.electronAPI && window.electronAPI.saveCredentials) {
+                    window.electronAPI.saveCredentials({ email: userEmail, password: userPassword }).catch(err => {
+                      console.error('Failed to save credentials:', err);
+                    });
+                  }
+                  
+                  // The window will navigate to the store automatically
+                } else {
+                  throw new Error(result?.message || 'Failed to connect');
+                }
+              } catch (err) {
+                console.error('Connection callback error:', err);
+                
+                // Set failure flag so credentials are cleared on next startup
+                localStorage.setItem('electron-login-failed', 'true');
+                
+                // Clear saved credentials since login failed
+                localStorage.removeItem('electron-login-credentials');
+                
+                // Clear Electron stored credentials
+                if (window.electronAPI && window.electronAPI.clearCredentials) {
+                window.electronAPI.clearCredentials().catch(clearErr => {
+                console.error('Failed to clear credentials:', clearErr);
+                });
+                }
+                
+                loadingElem.classList.remove('active');
+                cardTitleElem.classList.remove('hidden');
+                cardDescElem.classList.remove('hidden');
+                loginFormElem.classList.remove('hidden');
+                errorElem.classList.add('active');
+                errorTextElem.textContent = err.message || 'Login failed. Please check your credentials and try again.';
+                loginButtonElem.disabled = false;
+                
+                // Hide connection notice since we're connected
+                const connectionNoticeElem = document.getElementById('connectionNotice');
+                if (connectionNoticeElem) {
+                  connectionNoticeElem.style.display = 'none';
+                }
+              }
+            };
+            // Will keep retrying automatically via scheduleRetry()
+            return;
+          }
+
+          loadingText.textContent = 'Validating credentials...';
+
+          // Validate credentials with the server FIRST
+          const validation = await validateCredentials(email, password);
+          
+          if (!validation.success) {
+            // Invalid credentials
+            throw new Error(validation.error || 'Invalid credentials');
+          }
+
+          loadingText.textContent = 'Authentication successful...';
+
+          loadingText.textContent = 'Connecting to OTH Store...';
+
+          // Connect to the store with credentials
+          const result = await window.electronAPI.connectToStore({ email, password }).catch(err => {
+            console.error('Failed to connect to store:', err);
+            return { success: false, message: err.message };
+          });
+
+          if (result && result.success) {
+            loadingText.textContent = 'Launching application...';
+            
+            // Clear any previous failure flags
+            localStorage.removeItem('electron-login-failed');
+            
+            // Save credentials securely for next time (don't wait for login to complete)
+            if (window.electronAPI && window.electronAPI.saveCredentials) {
+              window.electronAPI.saveCredentials({ email, password }).catch(err => {
+                console.error('Failed to save credentials:', err);
+              });
+            }
+            
+            // The window will navigate to the store automatically
+          } else {
+            throw new Error(result?.message || 'Failed to connect to OTH Store');
+          }
+        } catch (err) {
+          console.error('Login error:', err);
+          
+          // Set failure flag so credentials are cleared on next startup
+          localStorage.setItem('electron-login-failed', 'true');
+          
+          // Clear saved credentials since login failed
+          localStorage.removeItem('electron-login-credentials');
+          
+          // Clear Electron stored credentials
+          if (window.electronAPI && window.electronAPI.clearCredentials) {
+            window.electronAPI.clearCredentials().catch(clearErr => {
+              console.error('Failed to clear credentials:', clearErr);
+            });
+          }
+          
+          loading.classList.remove('active');
+          cardTitle.classList.remove('hidden');
+          cardDescription.classList.remove('hidden');
+          loginForm.classList.remove('hidden');
+          error.classList.add('active');
+          errorText.textContent = err.message || 'Login failed. Please check your credentials and try again.';
+          loginButton.disabled = false;
+          
+          // Hide connection notice since we're connected
+          const connectionNotice = document.getElementById('connectionNotice');
+          if (connectionNotice) {
+            connectionNotice.style.display = 'none';
+          }
+        }
+      });
+
+      // Handle register link - open in default browser
+      registerLink.addEventListener('click', (e) => {
+        e.preventDefault();
+        // In a real implementation, you'd open the default browser
+        alert('Please visit https://your-oth-domain.com/register to create an account');
+      });
+    }
+
+    // Inject client identifier into the web app
+    if (window.electronAPI) {
+      window.addEventListener('load', () => {
+        localStorage.setItem('isElectronClient', 'true');
+      });
+    }
+  </script>
+</body>
+</html>
