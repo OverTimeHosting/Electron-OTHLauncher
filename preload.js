@@ -47,4 +47,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
   discordSetIdle: () => ipcRenderer.invoke('discord-set-idle'),
   discordIsConnected: () => ipcRenderer.invoke('discord-is-connected'),
   discordSetMode: (mode) => ipcRenderer.invoke('discord-set-mode', mode),
+  
+  // File Operations
+  selectFile: () => ipcRenderer.invoke('select-file'),
+  selectFolder: () => ipcRenderer.invoke('select-folder'),
+  readFile: (filePath) => ipcRenderer.invoke('read-file', filePath),
+  readFolder: (folderPath) => ipcRenderer.invoke('read-folder', folderPath),
 });

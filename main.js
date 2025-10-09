@@ -5,6 +5,7 @@ const fs = require('fs').promises;
 const https = require('https');
 const http = require('http');
 const { spawn } = require('child_process');
+const mime = require('mime-types');
 
 // Set app name for notifications and system
 app.setName('OTH Launcher');
@@ -715,6 +716,119 @@ ipcMain.handle('get-always-on-top', async () => {
   } catch (error) {
     console.error('Failed to get always on top status:', error);
     return { success: false, error: error.message };
+  }
+});
+
+// ===== FILE OPERATIONS HANDLERS =====
+
+// Select file using dialog
+ipcMain.handle('select-file', async () => {
+  try {
+    const { canceled, filePaths } = await dialog.showOpenDialog(mainWindow, {
+      title: 'Select File to Upload',
+      properties: ['openFile'],
+      filters: [
+        { name: 'All Files', extensions: ['*'] },
+        { name: 'Images', extensions: ['jpg', 'jpeg', 'png', 'gif', 'webp'] },
+        { name: 'Documents', extensions: ['pdf', 'doc', 'docx', 'txt', 'md'] },
+        { name: 'Archives', extensions: ['zip', 'rar', '7z', 'tar', 'gz'] },
+      ]
+    });
+
+    if (canceled || !filePaths || filePaths.length === 0) {
+      return { success: false, error: 'Selection canceled' };
+    }
+
+    const filePath = filePaths[0];
+    const fileName = path.basename(filePath);
+    const mimeType = mime.lookup(filePath) || 'application/octet-stream';
+
+    return {
+      success: true,
+      filePath,
+      fileName,
+      mimeType,
+    };
+  } catch (error) {
+    console.error('File selection error:', error);
+    return { success: false, error: error.message };
+  }
+});
+
+// Select folder using dialog
+ipcMain.handle('select-folder', async () => {
+  try {
+    const { canceled, filePaths } = await dialog.showOpenDialog(mainWindow, {
+      title: 'Select Folder to Upload',
+      properties: ['openDirectory']
+    });
+
+    if (canceled || !filePaths || filePaths.length === 0) {
+      return { success: false, error: 'Selection canceled' };
+    }
+
+    const folderPath = filePaths[0];
+    const folderName = path.basename(folderPath);
+
+    return {
+      success: true,
+      folderPath,
+      folderName,
+    };
+  } catch (error) {
+    console.error('Folder selection error:', error);
+    return { success: false, error: error.message };
+  }
+});
+
+// Read folder contents recursively
+ipcMain.handle('read-folder', async (event, folderPath) => {
+  try {
+    const files = [];
+
+    async function scanDirectory(dirPath, relativePath = '') {
+      const items = await fs.readdir(dirPath);
+      
+      for (const item of items) {
+        const fullPath = path.join(dirPath, item);
+        const relPath = path.join(relativePath, item);
+        const stats = await fs.stat(fullPath);
+        
+        if (stats.isDirectory()) {
+          // Recursively scan subdirectories
+          await scanDirectory(fullPath, relPath);
+        } else if (stats.isFile()) {
+          // Read file content
+          const content = await fs.readFile(fullPath);
+          const mimeType = mime.lookup(fullPath) || 'application/octet-stream';
+          
+          files.push({
+            name: item,
+            path: relPath.replace(/\\/g, '/'), // Normalize path separators
+            content: content,
+            mimeType: mimeType,
+            size: stats.size
+          });
+        }
+      }
+    }
+
+    await scanDirectory(folderPath);
+    return { success: true, files };
+  } catch (error) {
+    console.error('Folder read error:', error);
+    throw new Error(`Failed to read folder: ${error.message}`);
+  }
+});
+
+// Read file content
+ipcMain.handle('read-file', async (event, filePath) => {
+  try {
+    const buffer = await fs.readFile(filePath);
+    return buffer;
+  } catch (error) {
+    console.error('File read error:', error);
+    throw new Error(`Failed to read file: ${error.message}`);
   }
 });
 
