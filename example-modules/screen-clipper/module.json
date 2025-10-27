@@ -1,0 +1,74 @@
+{
+  "id": "screen-clipper-v1",
+  "name": "screen-clipper",
+  "displayName": "Clip",
+  "version": "1.0.0",
+  "category": "tools",
+  "author": "Damian Nemeti",
+  "description": "Powerful screen capture tool with region selection, full screen, and window capture modes. Supports annotations, clipboard integration, and auto-save.",
+  "main": "index.js",
+  "icon": "icon.svg",
+  "banner": "banner.png",
+  "tags": ["screenshot", "capture", "clipper", "screen-recorder"],
+  "requirements": {
+    "launcherVersion": ">=1.0.0",
+    "os": ["win32", "darwin", "linux"]
+  },
+  "dependencies": [],
+  "conflicts": [],
+  "permissions": ["screen", "clipboard", "notifications", "filesystem"],
+  "settings": {
+    "hotkey": {
+      "type": "hotkey",
+      "default": "Ctrl+Shift+S",
+      "label": "Capture Hotkey",
+      "description": "Global hotkey to trigger screen capture"
+    },
+    "saveLocation": {
+      "type": "path",
+      "default": "Pictures/OTH Clips",
+      "label": "Save Location",
+      "description": "Where to save captured screenshots"
+    },
+    "captureMode": {
+      "type": "select",
+      "default": "region",
+      "options": ["fullscreen", "window", "region"],
+      "label": "Default Capture Mode",
+      "description": "Default mode when triggering capture"
+    },
+    "autoSave": {
+      "type": "boolean",
+      "default": true,
+      "label": "Auto-save Captures",
+      "description": "Automatically save screenshots without prompting"
+    },
+    "copyToClipboard": {
+      "type": "boolean",
+      "default": true,
+      "label": "Copy to Clipboard",
+      "description": "Automatically copy screenshots to clipboard"
+    },
+    "showNotification": {
+      "type": "boolean",
+      "default": true,
+      "label": "Show Notifications",
+      "description": "Show notification after capture"
+    },
+    "imageFormat": {
+      "type": "select",
+      "default": "png",
+      "options": ["png", "jpg", "webp"],
+      "label": "Image Format",
+      "description": "Default format for saved images"
+    },
+    "jpegQuality": {
+      "type": "number",
+      "default": 90,
+      "min": 1,
+      "max": 100,
+      "label": "JPEG Quality",
+      "description": "Quality for JPEG images (1-100)"
+    }
+  }
+}

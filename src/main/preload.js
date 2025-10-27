@@ -15,8 +15,13 @@ contextBridge.exposeInMainWorld('electronAPI', {
   minimizeWindow: () => ipcRenderer.send('minimize-window'),
   maximizeWindow: () => ipcRenderer.send('maximize-window'),
   closeWindow: () => ipcRenderer.send('close-window'),
+  closeCurrentWindow: () => ipcRenderer.invoke('close-current-window'),
   toggleAlwaysOnTop: (shouldBeOnTop) => ipcRenderer.invoke('toggle-always-on-top', shouldBeOnTop),
   getAlwaysOnTop: () => ipcRenderer.invoke('get-always-on-top'),
+  
+  // AI Chat
+  openAIChat: () => ipcRenderer.invoke('open-ai-chat'),
+  navigateMainWindow: (url) => ipcRenderer.invoke('navigate-main-window', url),
   
   // Secure credential storage
   saveCredentials: (credentials) => ipcRenderer.invoke('save-credentials', credentials),
@@ -30,7 +35,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   getInstalledApps: () => ipcRenderer.invoke('get-installed-apps'),
   isAppInstalled: (marketplaceItemId) => ipcRenderer.invoke('is-app-installed', marketplaceItemId),
   launchApp: (marketplaceItemId) => ipcRenderer.invoke('launch-app', marketplaceItemId),
-  downloadApp: (downloadInfo) => ipcRenderer.invoke('download-app', downloadInfo),
+  downloadApp: (downloadInfo) => ipcRenderer.invoke('download-app', downloadInfo), // LEGACY
+  saveDownloadedFile: (fileData) => ipcRenderer.invoke('save-downloaded-file', fileData), // NEW - for authenticated downloads
   registerInstallation: (installInfo) => ipcRenderer.invoke('register-installation', installInfo),
   uninstallApp: (marketplaceItemId) => ipcRenderer.invoke('uninstall-app', marketplaceItemId),
   openInstallLocation: (marketplaceItemId) => ipcRenderer.invoke('open-install-location', marketplaceItemId),
@@ -42,6 +48,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   clearCache: () => ipcRenderer.invoke('clear-cache'),
   getStorageInfo: () => ipcRenderer.invoke('get-storage-info'),
   openFolder: (folderPath) => ipcRenderer.invoke('open-folder', folderPath),
+  uninstallLauncher: () => ipcRenderer.invoke('uninstall-launcher'),
   
   // Discord Rich Presence
   discordSetIdle: () => ipcRenderer.invoke('discord-set-idle'),
@@ -53,4 +60,19 @@ contextBridge.exposeInMainWorld('electronAPI', {
   selectFolder: () => ipcRenderer.invoke('select-folder'),
   readFile: (filePath) => ipcRenderer.invoke('read-file', filePath),
   readFolder: (folderPath) => ipcRenderer.invoke('read-folder', folderPath),
+  
+  // Module Management (Enhanced)
+  downloadModule: (moduleInfo) => ipcRenderer.invoke('download-module', moduleInfo),
+  getInstalledModules: () => ipcRenderer.invoke('get-installed-modules'),
+  uninstallModule: (moduleId) => ipcRenderer.invoke('uninstall-module', moduleId),
+  enableModule: (moduleId) => ipcRenderer.invoke('enable-module', moduleId),
+  disableModule: (moduleId) => ipcRenderer.invoke('disable-module', moduleId),
+  getModuleSettings: (moduleId) => ipcRenderer.invoke('get-module-settings', moduleId),
+  saveModuleSettings: (moduleId, settings) => ipcRenderer.invoke('save-module-settings', moduleId, settings),
+  checkModuleUpdates: (moduleIds) => ipcRenderer.invoke('check-module-updates', moduleIds),
+  
+  // Module Dock
+  toggleModuleDock: () => ipcRenderer.invoke('toggle-module-dock'),
+  isDockDetached: () => ipcRenderer.invoke('is-dock-detached'),
+  closeModuleDock: () => ipcRenderer.invoke('close-module-dock'),
 });

@@ -21,8 +21,10 @@
     "dist": "electron-builder"
   },
   "dependencies": {
+    "adm-zip": "^0.5.10",
     "discord-rpc": "^4.0.1",
-    "electron-store": "^8.1.0"
+    "electron-store": "^8.1.0",
+    "mime-types": "^2.1.35"
   },
   "devDependencies": {
     "electron": "^28.1.0",
@@ -39,12 +41,14 @@
     "files": [
       "main.js",
       "preload.js",
+      "module-manager.js",
       "launcher.html",
       "company.png",
       "company.ico",
       "company.gif",
       "icon.svg",
-      "discord/**/*"
+      "discord/**/*",
+      "LICENSE"
     ],
     "extraResources": [
       {
@@ -68,23 +72,18 @@
       "artifactName": "${productName}-${version}-${arch}.${ext}"
     },
     "nsis": {
-      "oneClick": false,
-      "allowToChangeInstallationDirectory": true,
+      "oneClick": true,
+      "perMachine": false,
+      "allowElevation": true,
+      "allowToChangeInstallationDirectory": false,
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
       "shortcutName": "OTHLauncher",
       "installerIcon": "company.ico",
       "uninstallerIcon": "company.ico",
-      "installerHeaderIcon": "company.ico",
-      "installerSidebar": "company.gif",
-      "uninstallerSidebar": "company.gif",
-      "license": "../LICENSE",
-      "warningsAsErrors": false,
-      "perMachine": false,
-      "allowElevation": true,
       "runAfterFinish": true,
-      "menuCategory": true,
-      "deleteAppDataOnUninstall": true
+      "deleteAppDataOnUninstall": true,
+      "warningsAsErrors": false
     },
     "portable": {
       "artifactName": "${productName}-${version}-portable.${ext}"

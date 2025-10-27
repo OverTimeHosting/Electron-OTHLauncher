@@ -1,0 +1,35 @@
+{
+  "id": "example-theme",
+  "name": "example-theme",
+  "displayName": "Example Dark Theme",
+  "version": "1.0.0",
+  "category": "themes",
+  "author": "OTH Team",
+  "description": "A beautiful dark theme for the OTH Launcher",
+  "main": "styles.css",
+  "icon": "icon.png",
+  "banner": "banner.png",
+  "tags": ["dark", "theme", "blue"],
+  "requirements": {
+    "launcherVersion": ">=1.0.0",
+    "os": ["win32", "darwin", "linux"]
+  },
+  "dependencies": [],
+  "conflicts": [],
+  "permissions": [],
+  "settings": {
+    "accentColor": {
+      "type": "color",
+      "default": "#007bff",
+      "label": "Accent Color",
+      "description": "Primary accent color for the theme"
+    },
+    "fontSize": {
+      "type": "select",
+      "default": "medium",
+      "options": ["small", "medium", "large"],
+      "label": "Font Size",
+      "description": "Base font size for the launcher"
+    }
+  }
+}

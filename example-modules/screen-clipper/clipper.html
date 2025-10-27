@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Screen Clipper - Select Region</title>
+  <link rel="stylesheet" href="clipper.css">
+</head>
+<body>
+  <div id="overlay">
+    <div id="selection-box"></div>
+    <div id="instructions">
+      <p>Click and drag to select a region</p>
+      <p class="hint">Press ESC to cancel</p>
+    </div>
+  </div>
+
+  <script>
+    // Selection state
+    let isSelecting = false;
+    let startX = 0;
+    let startY = 0;
+    let currentX = 0;
+    let currentY = 0;
+
+    const overlay = document.getElementById('overlay');
+    const selectionBox = document.getElementById('selection-box');
+    const instructions = document.getElementById('instructions');
+
+    // Mouse down - start selection
+    overlay.addEventListener('mousedown', (e) => {
+      isSelecting = true;
+      startX = e.clientX;
+      startY = e.clientY;
+      currentX = e.clientX;
+      currentY = e.clientY;
+
+      selectionBox.style.display = 'block';
+      instructions.style.display = 'none';
+      
+      updateSelectionBox();
+    });
+
+    // Mouse move - update selection
+    overlay.addEventListener('mousemove', (e) => {
+      if (!isSelecting) return;
+
+      currentX = e.clientX;
+      currentY = e.clientY;
+      
+      updateSelectionBox();
+    });
+
+    // Mouse up - complete selection
+    overlay.addEventListener('mouseup', (e) => {
+      if (!isSelecting) return;
+
+      isSelecting = false;
+      
+      const bounds = {
+        x: Math.min(startX, currentX),
+        y: Math.min(startY, currentY),
+        width: Math.abs(currentX - startX),
+        height: Math.abs(currentY - startY)
+      };
+
+      // Must have a valid selection
+      if (bounds.width < 10 || bounds.height < 10) {
+        selectionBox.style.display = 'none';
+        instructions.style.display = 'block';
+        return;
+      }
+
+      // Send capture request to main process
+      window.electronAPI.captureRegion(bounds);
+    });
+
+    // Escape key - cancel
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') {
+        window.electronAPI.cancelCapture();
+      }
+    });
+
+    // Update selection box position and size
+    function updateSelectionBox() {
+      const left = Math.min(startX, currentX);
+      const top = Math.min(startY, currentY);
+      const width = Math.abs(currentX - startX);
+      const height = Math.abs(currentY - startY);
+
+      selectionBox.style.left = left + 'px';
+      selectionBox.style.top = top + 'px';
+      selectionBox.style.width = width + 'px';
+      selectionBox.style.height = height + 'px';
+
+      // Update dimensions display
+      const dimensions = document.getElementById('dimensions');
+      if (dimensions) {
+        dimensions.textContent = `${Math.round(width)} × ${Math.round(height)}`;
+      } else if (width > 50 && height > 50) {
+        // Add dimensions display if selection is large enough
+        const dim = document.createElement('div');
+        dim.id = 'dimensions';
+        dim.textContent = `${Math.round(width)} × ${Math.round(height)}`;
+        selectionBox.appendChild(dim);
+      }
+    }
+  </script>
+</body>
+</html>

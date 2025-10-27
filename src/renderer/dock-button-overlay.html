@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dock Button</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      width: 60px;
+      height: 80px;
+      background: transparent;
+      overflow: hidden;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      -webkit-app-region: no-drag;
+    }
+
+    .dock-button {
+      width: 56px;
+      height: 56px;
+      background: #000000;
+      border: 1px solid rgba(255, 255, 255, 0.3);
+      border-radius: 16px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+      position: relative;
+      box-shadow: 
+        0 8px 32px rgba(0, 0, 0, 0.8),
+        0 0 0 1px rgba(255, 255, 255, 0.1) inset;
+    }
+
+    .dock-button::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(135deg, rgba(255, 255, 255, 0.1), transparent);
+      border-radius: 16px;
+      opacity: 0;
+      transition: opacity 0.3s;
+    }
+
+    .dock-button:hover {
+      transform: scale(1.1);
+      background: #0a0a0a;
+      border-color: rgba(255, 255, 255, 0.4);
+      box-shadow: 
+        0 12px 48px rgba(0, 0, 0, 0.9),
+        0 0 0 1px rgba(255, 255, 255, 0.2) inset,
+        0 0 20px rgba(59, 130, 246, 0.5);
+    }
+
+    .dock-button:hover::before {
+      opacity: 1;
+    }
+
+    .dock-button:active {
+      transform: scale(0.95);
+    }
+
+    .dock-button svg {
+      width: 28px;
+      height: 28px;
+      color: #ffffff;
+      filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3));
+    }
+
+    .badge {
+      position: absolute;
+      top: -6px;
+      right: -6px;
+      min-width: 22px;
+      height: 22px;
+      padding: 0 6px;
+      background: linear-gradient(135deg, #ef4444, #dc2626);
+      border-radius: 11px;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      font-size: 11px;
+      font-weight: 700;
+      color: white;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      border: 2px solid #000000;
+      animation: pulse 2s ease-in-out infinite;
+      box-shadow: 
+        0 2px 8px rgba(239, 68, 68, 0.6),
+        0 0 12px rgba(239, 68, 68, 0.4);
+    }
+
+    .badge.show {
+      display: flex;
+    }
+
+    @keyframes pulse {
+      0%, 100% {
+        transform: scale(1);
+        box-shadow: 
+          0 2px 8px rgba(239, 68, 68, 0.6),
+          0 0 12px rgba(239, 68, 68, 0.4);
+      }
+      50% {
+        transform: scale(1.05);
+        box-shadow: 
+          0 4px 12px rgba(239, 68, 68, 0.8),
+          0 0 20px rgba(239, 68, 68, 0.6);
+      }
+    }
+
+    /* Glow effect on hover */
+    .dock-button:hover .badge {
+      animation: pulse 1s ease-in-out infinite;
+    }
+  </style>
+</head>
+<body>
+  <div class="dock-button" id="dockButton">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <rect x="3" y="3" width="7" height="7" rx="1"></rect>
+      <rect x="14" y="3" width="7" height="7" rx="1"></rect>
+      <rect x="14" y="14" width="7" height="7" rx="1"></rect>
+      <rect x="3" y="14" width="7" height="7" rx="1"></rect>
+    </svg>
+    <div class="badge" id="badge">0</div>
+  </div>
+
+  <script>
+    let moduleCount = 0;
+
+    // Handle button click
+    document.getElementById('dockButton').addEventListener('click', async () => {
+      if (window.electronAPI && window.electronAPI.toggleModuleDock) {
+        try {
+          const result = await window.electronAPI.toggleModuleDock();
+          console.log('Dock toggled:', result);
+        } catch (error) {
+          console.error('Failed to toggle dock:', error);
+        }
+      }
+    });
+
+    // Update badge
+    async function updateBadge() {
+      if (!window.electronAPI || !window.electronAPI.getInstalledModules) return;
+
+      try {
+        const result = await window.electronAPI.getInstalledModules();
+        if (result.success && result.modules) {
+          moduleCount = result.modules.length;
+          const badge = document.getElementById('badge');
+          
+          if (moduleCount > 0) {
+            badge.textContent = moduleCount;
+            badge.classList.add('show');
+          } else {
+            badge.classList.remove('show');
+          }
+        }
+      } catch (error) {
+        console.error('Failed to get modules:', error);
+      }
+    }
+
+    // Initial update
+    setTimeout(updateBadge, 1000);
+
+    // Update every 5 seconds
+    setInterval(updateBadge, 5000);
+
+    console.log('Dock overlay button initialized');
+  </script>
+</body>
+</html>
