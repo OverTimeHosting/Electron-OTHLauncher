@@ -7,6 +7,8 @@
   "author": "Damian Nemeti",
   "description": "Powerful screen capture tool with region selection, full screen, and window capture modes. Supports annotations, clipboard integration, and auto-save.",
   "main": "index.js",
+  "window": "module-window.html",
+  "hasWindow": true,
   "icon": "icon.svg",
   "banner": "banner.png",
   "tags": ["screenshot", "capture", "clipper", "screen-recorder"],

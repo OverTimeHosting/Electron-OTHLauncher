@@ -7,11 +7,51 @@ const { BrowserWindow, ipcMain } = require('electron');
 const path = require('path');
 
 class ModuleDockManager {
+  /**
+   * Restore dock state on app launch
+   */
+  restoreDockState(mainWindow) {
+    const shouldBeVisible = this.getDockState();
+    if (shouldBeVisible) {
+      // Wait a bit for the main window to be ready
+      setTimeout(() => {
+        this.createDetachedDock(mainWindow);
+      }, 1000);
+    }
+  }
+
+  /**
+   * Set the electron-store instance for state persistence
+   */
+  setStore(store) {
+    this.store = store;
+  }
+
+  /**
+   * Save dock visibility state
+   */
+  saveDockState(isVisible) {
+    if (this.store) {
+      this.store.set('dock-visible', isVisible);
+    }
+  }
+
+  /**
+   * Get saved dock visibility state
+   */
+  getDockState() {
+    if (this.store) {
+      return this.store.get('dock-visible', false); // Default to false (closed)
+    }
+    return false;
+  }
+
   constructor() {
     this.dockWindow = null;
     this.isDetached = false;
     this.dockPosition = { x: 0, y: 0 };
     this.mainWindow = null;
+    this.store = null; // Will be set from main.js
     // Store event handlers so we can remove them later
     this.eventHandlers = {
       move: null,
@@ -68,7 +108,7 @@ class ModuleDockManager {
 
       const mainBounds = this.mainWindow.getBounds();
       const dockX = mainBounds.x + mainBounds.width + 2;
-      const dockY = mainBounds.y + Math.floor(mainBounds.height / 2) - 300;
+      const dockY = mainBounds.y + 40; // Start from the top
 
       // Validate positions are numbers
       if (!isNaN(dockX) && !isNaN(dockY) && isFinite(dockX) && isFinite(dockY)) {
@@ -99,9 +139,9 @@ class ModuleDockManager {
     
     this.dockWindow = new BrowserWindow({
       width: 88,
-      height: 600,
+      height: 600, // Fixed height - reverted from dynamic sizing
       x: mainBounds.x + mainBounds.width + 2, // Very close to main window
-      y: mainBounds.y + Math.floor(mainBounds.height / 2) - 300, // Center vertically
+      y: mainBounds.y + 40, // Start from the top (below title bar)
       frame: false,
       transparent: false,
       backgroundColor: '#000000',
@@ -111,17 +151,17 @@ class ModuleDockManager {
       movable: false, // Can't be moved!
       minimizable: false,
       maximizable: false,
-      focusable: false, // Can't be focused separately
+      focusable: true, // CHANGED: Allow focus for keyboard input
       show: false,
       hasShadow: false, // No shadow to make it feel more attached
       webPreferences: {
-        preload: path.join(__dirname, 'preload.js'),
+        preload: path.join(__dirname, '../main/preload.js'),
         contextIsolation: true,
         nodeIntegration: false,
       },
     });
 
-    this.dockWindow.loadFile(path.join(__dirname, 'module-dock.html'));
+    this.dockWindow.loadFile(path.join(__dirname, '../renderer/module-dock.html'));
 
     this.dockWindow.once('ready-to-show', () => {
       this.dockWindow.show();
@@ -131,10 +171,22 @@ class ModuleDockManager {
       }
     });
 
+    // Enable F12 for DevTools (detached mode for better visibility)
+    this.dockWindow.webContents.on('before-input-event', (event, input) => {
+      if (input.key === 'F12') {
+        if (this.dockWindow.webContents.isDevToolsOpened()) {
+          this.dockWindow.webContents.closeDevTools();
+        } else {
+          this.dockWindow.webContents.openDevTools({ mode: 'detach' });
+        }
+      }
+    });
+
     this.dockWindow.on('closed', () => {
       this.removeEventListeners();
       this.dockWindow = null;
       this.isDetached = false;
+      this.saveDockState(false); // Save closed state when window is closed
     });
 
     // Create event handlers
@@ -209,6 +261,7 @@ class ModuleDockManager {
     
     this.dockWindow = null;
     this.isDetached = false;
+    this.saveDockState(false); // Save closed state
   }
 
   /**
@@ -220,6 +273,7 @@ class ModuleDockManager {
       return { detached: false };
     } else {
       this.createDetachedDock(mainWindow);
+      this.saveDockState(true); // Save opened state
       return { detached: true };
     }
   }

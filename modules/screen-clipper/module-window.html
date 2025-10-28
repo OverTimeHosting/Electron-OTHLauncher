@@ -1,0 +1,969 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Clip - Screen Capture Tool</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+      background: #000000;
+      color: #ffffff;
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+      overflow: hidden;
+    }
+
+    /* Window Controls */
+    .window-controls {
+      position: fixed;
+      top: 0;
+      right: 0;
+      left: 0;
+      height: 32px;
+      background: #000000;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 0 1rem;
+      -webkit-app-region: drag;
+      z-index: 1000;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+    }
+
+    .window-title {
+      font-size: 0.875rem;
+      color: rgba(255, 255, 255, 0.7);
+      font-weight: 500;
+    }
+
+    .window-buttons {
+      display: flex;
+      gap: 0.5rem;
+      -webkit-app-region: no-drag;
+    }
+
+    .window-button {
+      width: 28px;
+      height: 28px;
+      border: none;
+      background: transparent;
+      color: rgba(255, 255, 255, 0.7);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 0.25rem;
+      transition: all 0.2s;
+    }
+
+    .window-button:hover {
+      background: rgba(255, 255, 255, 0.1);
+      color: #ffffff;
+    }
+
+    .window-button.close:hover {
+      background: #dc2626;
+      color: #ffffff;
+    }
+
+    /* Content Area */
+    .content-wrapper {
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+      padding-top: 32px;
+    }
+
+    /* Tab Navigation */
+    .tab-navigation {
+      display: flex;
+      gap: 0.5rem;
+      padding: 1rem 1.5rem 0 1.5rem;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+      background: #000000;
+    }
+
+    .tab-button {
+      padding: 0.75rem 1.5rem;
+      background: transparent;
+      border: none;
+      color: rgba(255, 255, 255, 0.6);
+      cursor: pointer;
+      font-size: 0.875rem;
+      font-weight: 500;
+      border-bottom: 2px solid transparent;
+      transition: all 0.2s;
+      position: relative;
+    }
+
+    .tab-button:hover {
+      color: rgba(255, 255, 255, 0.9);
+      background: rgba(255, 255, 255, 0.05);
+    }
+
+    .tab-button.active {
+      color: #ffffff;
+      border-bottom-color: #ffffff;
+    }
+
+    /* Tab Content */
+    .tab-content {
+      flex: 1;
+      overflow-y: auto;
+      padding: 2rem 1.5rem;
+    }
+
+    .tab-panel {
+      display: none;
+    }
+
+    .tab-panel.active {
+      display: block;
+    }
+
+    /* Library Tab */
+    .clips-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+      gap: 1rem;
+    }
+
+    .clip-card {
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 0.5rem;
+      overflow: hidden;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .clip-card:hover {
+      background: rgba(255, 255, 255, 0.1);
+      border-color: rgba(255, 255, 255, 0.2);
+    }
+
+    .clip-thumbnail {
+      aspect-ratio: 16/9;
+      background: rgba(255, 255, 255, 0.05);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: rgba(255, 255, 255, 0.3);
+      font-size: 2rem;
+    }
+
+    .clip-thumbnail img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+
+    .clip-info {
+      padding: 0.75rem;
+    }
+
+    .clip-date {
+      font-size: 0.75rem;
+      color: rgba(255, 255, 255, 0.6);
+    }
+
+    .clip-actions {
+      display: flex;
+      gap: 0.5rem;
+      margin-top: 0.5rem;
+    }
+
+    .clip-action-btn {
+      flex: 1;
+      padding: 0.375rem;
+      background: rgba(255, 255, 255, 0.1);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      border-radius: 0.25rem;
+      color: #ffffff;
+      font-size: 0.75rem;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .clip-action-btn:hover {
+      background: rgba(255, 255, 255, 0.2);
+    }
+
+    .empty-state {
+      text-align: center;
+      padding: 4rem 2rem;
+    }
+
+    .empty-icon {
+      font-size: 4rem;
+      color: rgba(255, 255, 255, 0.2);
+      margin-bottom: 1rem;
+    }
+
+    .empty-title {
+      font-size: 1.5rem;
+      font-weight: 600;
+      color: #ffffff;
+      margin-bottom: 0.5rem;
+    }
+
+    .empty-description {
+      font-size: 0.875rem;
+      color: rgba(255, 255, 255, 0.6);
+      margin-bottom: 1.5rem;
+    }
+
+    /* Settings Tab */
+    .settings-section {
+      margin-bottom: 2rem;
+    }
+
+    .settings-section-title {
+      font-size: 1.125rem;
+      font-weight: 600;
+      color: #ffffff;
+      margin-bottom: 1rem;
+      padding-bottom: 0.5rem;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    .setting-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 1rem;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 0.5rem;
+      margin-bottom: 0.75rem;
+    }
+
+    .setting-label {
+      flex: 1;
+    }
+
+    .setting-name {
+      font-size: 0.875rem;
+      font-weight: 500;
+      color: #ffffff;
+      margin-bottom: 0.25rem;
+    }
+
+    .setting-description {
+      font-size: 0.75rem;
+      color: rgba(255, 255, 255, 0.6);
+    }
+
+    .setting-control {
+      margin-left: 1rem;
+    }
+
+    /* Toggle Switch */
+    .toggle-switch {
+      position: relative;
+      width: 44px;
+      height: 24px;
+      background: rgba(255, 255, 255, 0.2);
+      border-radius: 12px;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+
+    .toggle-switch.active {
+      background: #22c55e;
+    }
+
+    .toggle-switch::after {
+      content: '';
+      position: absolute;
+      top: 2px;
+      left: 2px;
+      width: 20px;
+      height: 20px;
+      background: #ffffff;
+      border-radius: 50%;
+      transition: transform 0.2s;
+    }
+
+    .toggle-switch.active::after {
+      transform: translateX(20px);
+    }
+
+    /* Select */
+    .setting-select {
+      padding: 0.5rem 0.75rem;
+      background: rgba(255, 255, 255, 0.1);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      border-radius: 0.375rem;
+      color: #ffffff;
+      font-size: 0.875rem;
+      cursor: pointer;
+      min-width: 150px;
+    }
+
+    .setting-select:focus {
+      outline: none;
+      border-color: #ffffff;
+    }
+
+    /* Input */
+    .setting-input {
+      padding: 0.5rem 0.75rem;
+      background: rgba(255, 255, 255, 0.1);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      border-radius: 0.375rem;
+      color: #ffffff;
+      font-size: 0.875rem;
+      min-width: 150px;
+    }
+
+    .setting-input:focus {
+      outline: none;
+      border-color: #ffffff;
+    }
+
+    /* Buttons */
+    .btn {
+      padding: 0.625rem 1.25rem;
+      background: #ffffff;
+      color: #000000;
+      border: none;
+      border-radius: 0.375rem;
+      font-size: 0.875rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .btn:hover {
+      background: rgba(255, 255, 255, 0.9);
+    }
+
+    .btn-secondary {
+      background: rgba(255, 255, 255, 0.1);
+      color: #ffffff;
+      border: 1px solid rgba(255, 255, 255, 0.2);
+    }
+
+    .btn-secondary:hover {
+      background: rgba(255, 255, 255, 0.2);
+    }
+
+    /* Scrollbar */
+    ::-webkit-scrollbar {
+      width: 8px;
+    }
+
+    ::-webkit-scrollbar-track {
+      background: rgba(255, 255, 255, 0.05);
+    }
+
+    ::-webkit-scrollbar-thumb {
+      background: rgba(255, 255, 255, 0.2);
+      border-radius: 4px;
+    }
+
+    ::-webkit-scrollbar-thumb:hover {
+      background: rgba(255, 255, 255, 0.3);
+    }
+
+    .setting-path-wrapper {
+      display: flex;
+      gap: 0.5rem;
+      align-items: center;
+    }
+
+    .setting-path {
+      flex: 1;
+      padding: 0.5rem 0.75rem;
+      background: rgba(255, 255, 255, 0.1);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      border-radius: 0.375rem;
+      color: #ffffff;
+      font-size: 0.875rem;
+      min-width: 250px;
+    }
+
+    .btn-browse {
+      padding: 0.5rem 1rem;
+      background: rgba(255, 255, 255, 0.1);
+      color: #ffffff;
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      border-radius: 0.375rem;
+      font-size: 0.875rem;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .btn-browse:hover {
+      background: rgba(255, 255, 255, 0.2);
+    }
+  </style>
+</head>
+<body>
+  <!-- Window Controls -->
+  <div class="window-controls">
+    <div class="window-title">Clip - Screen Capture Tool</div>
+    <div class="window-buttons">
+      <button class="window-button" id="minimizeBtn" title="Minimize">
+        <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+          <rect y="5" width="12" height="2" fill="currentColor"/>
+        </svg>
+      </button>
+      <button class="window-button close" id="closeBtn" title="Close">
+        <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+          <path d="M1 1L11 11M11 1L1 11" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+        </svg>
+      </button>
+    </div>
+  </div>
+
+  <!-- Content Wrapper -->
+  <div class="content-wrapper">
+    <!-- Tab Navigation -->
+    <div class="tab-navigation">
+      <button class="tab-button" data-tab="library">Library</button>
+      <button class="tab-button active" data-tab="settings">Settings</button>
+    </div>
+
+    <!-- Tab Content -->
+    <div class="tab-content">
+      <!-- Library Tab -->
+      <div class="tab-panel" id="library-panel">
+        <div class="library-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+          <div>
+            <h2 style="font-size: 1.25rem; font-weight: 600; margin-bottom: 0.25rem;">My Clips</h2>
+            <p style="font-size: 0.875rem; color: rgba(255, 255, 255, 0.6);" id="clip-count">Loading...</p>
+          </div>
+          <div style="display: flex; gap: 0.5rem;">
+            <button class="btn-secondary" onclick="refreshClips()">Refresh</button>
+            <button class="btn-secondary" onclick="openClipsFolder()">Open Folder</button>
+          </div>
+        </div>
+        
+        <div class="empty-state" id="library-empty" style="display: none;">
+          <div class="empty-icon">📸</div>
+          <div class="empty-title">No Clips Yet</div>
+          <div class="empty-description">Your screen captures will appear here</div>
+          <button class="btn" onclick="takeScreenshot()">Take First Clip</button>
+        </div>
+        
+        <!-- This will be populated with clips -->
+        <div class="clips-grid" id="clips-grid" style="display: none;">
+          <!-- Clip cards will be inserted here -->
+        </div>
+      </div>
+
+      <!-- Settings Tab -->
+      <div class="tab-panel active" id="settings-panel">
+        <div class="settings-section">
+          <div class="settings-section-title">Capture Settings</div>
+          
+          <div class="setting-item">
+            <div class="setting-label">
+              <div class="setting-name">Capture Hotkey</div>
+              <div class="setting-description">Global keyboard shortcut to trigger capture</div>
+            </div>
+            <div class="setting-control">
+              <input type="text" class="setting-input" id="hotkey-input" value="Ctrl+Shift+S" readonly>
+            </div>
+          </div>
+
+          <div class="setting-item">
+            <div class="setting-label">
+              <div class="setting-name">Default Capture Mode</div>
+              <div class="setting-description">Choose default capture method</div>
+            </div>
+            <div class="setting-control">
+              <select class="setting-select" id="capture-mode">
+                <option value="region">Region</option>
+                <option value="fullscreen">Fullscreen</option>
+                <option value="window">Window</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="setting-item">
+            <div class="setting-label">
+              <div class="setting-name">Image Format</div>
+              <div class="setting-description">Format for saved images</div>
+            </div>
+            <div class="setting-control">
+              <select class="setting-select" id="image-format">
+                <option value="png">PNG</option>
+                <option value="jpg">JPEG</option>
+                <option value="webp">WebP</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="setting-item">
+            <div class="setting-label">
+              <div class="setting-name">JPEG Quality</div>
+              <div class="setting-description">Quality for JPEG images (1-100)</div>
+            </div>
+            <div class="setting-control">
+              <input type="number" class="setting-input" id="jpeg-quality" value="90" min="1" max="100" style="width: 80px;">
+            </div>
+          </div>
+        </div>
+
+        <div class="settings-section">
+          <div class="settings-section-title">Storage Settings</div>
+          
+          <div class="setting-item">
+            <div class="setting-label">
+              <div class="setting-name">Save Location</div>
+              <div class="setting-description">Where to save captured screenshots</div>
+            </div>
+            <div class="setting-control">
+              <div class="setting-path-wrapper">
+                <input type="text" class="setting-path" id="save-location" value="Pictures/OTH Clips" readonly>
+                <button class="btn-browse" onclick="browseSaveLocation()">Browse</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="settings-section">
+          <div class="settings-section-title">Behavior</div>
+          
+          <div class="setting-item">
+            <div class="setting-label">
+              <div class="setting-name">Auto-save Captures</div>
+              <div class="setting-description">Automatically save screenshots without prompting</div>
+            </div>
+            <div class="setting-control">
+              <div class="toggle-switch active" data-setting="autoSave"></div>
+            </div>
+          </div>
+
+          <div class="setting-item">
+            <div class="setting-label">
+              <div class="setting-name">Copy to Clipboard</div>
+              <div class="setting-description">Automatically copy screenshots to clipboard</div>
+            </div>
+            <div class="setting-control">
+              <div class="toggle-switch active" data-setting="copyToClipboard"></div>
+            </div>
+          </div>
+
+          <div class="setting-item">
+            <div class="setting-label">
+              <div class="setting-name">Show Notifications</div>
+              <div class="setting-description">Show notification after capture</div>
+            </div>
+            <div class="setting-control">
+              <div class="toggle-switch active" data-setting="showNotification"></div>
+            </div>
+          </div>
+        </div>
+
+        <div style="display: flex; gap: 1rem; justify-content: flex-end; margin-top: 2rem;">
+          <button class="btn-secondary" onclick="resetSettings()">Reset to Defaults</button>
+          <button class="btn" onclick="saveSettings()">Save Settings</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Module ID - will be injected by Electron
+    const MODULE_ID = 'screen-clipper-v1';
+
+    // Tab switching
+    document.querySelectorAll('.tab-button').forEach(button => {
+      button.addEventListener('click', () => {
+        const tabName = button.dataset.tab;
+        
+        // Update button states
+        document.querySelectorAll('.tab-button').forEach(btn => btn.classList.remove('active'));
+        button.classList.add('active');
+        
+        // Update panel visibility
+        document.querySelectorAll('.tab-panel').forEach(panel => panel.classList.remove('active'));
+        document.getElementById(`${tabName}-panel`).classList.add('active');
+        
+        // Load clips when switching to library tab
+        if (tabName === 'library') {
+          loadClips();
+        }
+      });
+    });
+
+    // Toggle switches
+    document.querySelectorAll('.toggle-switch').forEach(toggle => {
+      toggle.addEventListener('click', () => {
+        toggle.classList.toggle('active');
+      });
+    });
+
+    // Window controls
+    if (window.electronAPI) {
+      document.getElementById('minimizeBtn').addEventListener('click', () => {
+        window.electronAPI.minimizeWindow();
+      });
+
+      document.getElementById('closeBtn').addEventListener('click', () => {
+        window.electronAPI.closeWindow();
+      });
+    }
+
+    // Load settings
+    async function loadSettings() {
+      if (!window.electronAPI || !window.electronAPI.getModuleSettings) {
+        console.warn('⚠️ electronAPI.getModuleSettings not available, using defaults');
+        return;
+      }
+      
+      console.log('📚 Loading module settings for:', MODULE_ID);
+      
+      try {
+        const result = await window.electronAPI.getModuleSettings(MODULE_ID);
+        
+        if (result.success && result.settings) {
+          console.log('✅ Settings loaded:', result.settings);
+          applySettings(result.settings);
+        } else {
+          console.log('📄 No saved settings found, using defaults');
+        }
+      } catch (error) {
+        console.error('❌ Failed to load settings:', error);
+      }
+    }
+
+    function applySettings(settings) {
+      console.log('🎨 Applying settings to UI...');
+      
+      // Apply settings to UI
+      if (settings.hotkey) {
+        document.getElementById('hotkey-input').value = settings.hotkey;
+      }
+      if (settings.captureMode) {
+        document.getElementById('capture-mode').value = settings.captureMode;
+      }
+      if (settings.imageFormat) {
+        document.getElementById('image-format').value = settings.imageFormat;
+      }
+      if (settings.jpegQuality !== undefined) {
+        document.getElementById('jpeg-quality').value = settings.jpegQuality;
+      }
+      if (settings.saveLocation) {
+        document.getElementById('save-location').value = settings.saveLocation;
+      }
+      
+      // Apply toggle settings
+      const toggles = {
+        autoSave: settings.autoSave !== false,
+        copyToClipboard: settings.copyToClipboard !== false,
+        showNotification: settings.showNotification !== false
+      };
+      
+      document.querySelectorAll('.toggle-switch').forEach(toggle => {
+        const setting = toggle.dataset.setting;
+        if (setting && toggles[setting] !== undefined) {
+          toggle.classList.toggle('active', toggles[setting]);
+        }
+      });
+      
+      console.log('✅ Settings applied to UI');
+    }
+
+    async function saveSettings() {
+      if (!window.electronAPI || !window.electronAPI.saveModuleSettings) {
+        console.error('electronAPI not available');
+        alert('Cannot save settings - API not available');
+        return;
+      }
+      
+      // Get the save button to show feedback
+      const saveBtn = document.querySelector('.btn:not(.btn-secondary)');
+      const originalText = saveBtn ? saveBtn.textContent : '';
+      
+      // Collect all settings from the form
+      const settings = {
+        hotkey: document.getElementById('hotkey-input').value,
+        captureMode: document.getElementById('capture-mode').value,
+        imageFormat: document.getElementById('image-format').value,
+        jpegQuality: parseInt(document.getElementById('jpeg-quality').value),
+        saveLocation: document.getElementById('save-location').value,
+        autoSave: document.querySelector('[data-setting="autoSave"]').classList.contains('active'),
+        copyToClipboard: document.querySelector('[data-setting="copyToClipboard"]').classList.contains('active'),
+        showNotification: document.querySelector('[data-setting="showNotification"]').classList.contains('active')
+      };
+      
+      console.log('💾 Saving module settings:', settings);
+      
+      try {
+        const result = await window.electronAPI.saveModuleSettings(MODULE_ID, settings);
+        
+        if (result.success) {
+          console.log('✅ Settings saved successfully');
+          
+          // Show success feedback
+          if (saveBtn) {
+            saveBtn.textContent = 'Saved ✓';
+            saveBtn.style.background = '#22c55e';
+            setTimeout(() => {
+              saveBtn.textContent = originalText;
+              saveBtn.style.background = '';
+            }, 2000);
+          }
+        } else {
+          console.error('❌ Failed to save settings:', result.error);
+          alert('Failed to save settings: ' + result.error);
+        }
+      } catch (error) {
+        console.error('❌ Exception while saving settings:', error);
+        alert('Error saving settings: ' + error.message);
+      }
+    }
+
+    function resetSettings() {
+      if (confirm('Reset all settings to defaults?')) {
+        console.log('🔄 Resetting settings to defaults');
+        
+        // Reset all form values to defaults
+        document.getElementById('hotkey-input').value = 'Ctrl+Shift+S';
+        document.getElementById('capture-mode').value = 'region';
+        document.getElementById('image-format').value = 'png';
+        document.getElementById('jpeg-quality').value = 90;
+        document.getElementById('save-location').value = 'Pictures/OTH Clips';
+        
+        // Enable all toggles
+        document.querySelectorAll('.toggle-switch').forEach(toggle => {
+          toggle.classList.add('active');
+        });
+        
+        console.log('✅ Settings reset to defaults (not saved yet)');
+      }
+    }
+
+    async function browseSaveLocation() {
+      if (!window.electronAPI || !window.electronAPI.selectFolder) {
+        console.error('electronAPI.selectFolder not available');
+        alert('Folder selection not available');
+        return;
+      }
+      
+      console.log('📁 Opening folder selector...');
+      
+      try {
+        const result = await window.electronAPI.selectFolder();
+        
+        if (result.success && result.path) {
+          console.log('✅ Folder selected:', result.path);
+          document.getElementById('save-location').value = result.path;
+        } else if (!result.canceled) {
+          console.error('❌ Failed to select folder:', result.error);
+          alert('Failed to select folder: ' + result.error);
+        }
+      } catch (error) {
+        console.error('❌ Exception while selecting folder:', error);
+        alert('Error selecting folder: ' + error.message);
+      }
+    }
+
+    function takeScreenshot() {
+      console.log('📸 Take screenshot functionality would be implemented here');
+      alert('Screenshot functionality will be implemented in the module\'s main code!');
+      // This would trigger the actual screen capture via the module's index.js
+    }
+
+    // ===== LIBRARY TAB FUNCTIONS =====
+
+    let currentClips = [];
+
+    // Load clips from disk
+    async function loadClips() {
+      if (!window.electronAPI || !window.electronAPI.getClips) {
+        console.error('electronAPI.getClips not available');
+        return;
+      }
+
+      console.log('📂 Loading clips...');
+      
+      try {
+        const result = await window.electronAPI.getClips();
+        
+        if (result.success) {
+          currentClips = result.clips || [];
+          console.log(`✅ Loaded ${currentClips.length} clips`);
+          renderClips();
+        } else {
+          console.error('❌ Failed to load clips:', result.error);
+        }
+      } catch (error) {
+        console.error('❌ Exception loading clips:', error);
+      }
+    }
+
+    // Render clips in grid
+    function renderClips() {
+      const grid = document.getElementById('clips-grid');
+      const emptyState = document.getElementById('library-empty');
+      const clipCount = document.getElementById('clip-count');
+      
+      if (currentClips.length === 0) {
+        grid.style.display = 'none';
+        emptyState.style.display = 'block';
+        clipCount.textContent = 'No clips yet';
+        return;
+      }
+      
+      grid.style.display = 'grid';
+      emptyState.style.display = 'none';
+      clipCount.textContent = `${currentClips.length} clip${currentClips.length !== 1 ? 's' : ''}`;
+      
+      // Clear existing clips
+      grid.innerHTML = '';
+      
+      // Create clip cards
+      currentClips.forEach(clip => {
+        const card = createClipCard(clip);
+        grid.appendChild(card);
+      });
+    }
+
+    // Create clip card element
+    function createClipCard(clip) {
+      const card = document.createElement('div');
+      card.className = 'clip-card';
+      
+      // Thumbnail
+      const thumbnail = document.createElement('div');
+      thumbnail.className = 'clip-thumbnail';
+      
+      const img = document.createElement('img');
+      img.src = `file:///${clip.filepath.replace(/\\/g, '/')}`;
+      img.alt = clip.filename;
+      img.onerror = () => {
+        // If image fails to load, show placeholder
+        thumbnail.innerHTML = '<span style="font-size: 3rem;">🖼️</span>';
+      };
+      thumbnail.appendChild(img);
+      
+      card.appendChild(thumbnail);
+      
+      // Info
+      const info = document.createElement('div');
+      info.className = 'clip-info';
+      
+      const date = new Date(clip.created);
+      const dateStr = date.toLocaleDateString() + ' ' + date.toLocaleTimeString();
+      
+      const dateEl = document.createElement('div');
+      dateEl.className = 'clip-date';
+      dateEl.textContent = dateStr;
+      info.appendChild(dateEl);
+      
+      // Actions
+      const actions = document.createElement('div');
+      actions.className = 'clip-actions';
+      
+      const viewBtn = document.createElement('button');
+      viewBtn.className = 'clip-action-btn';
+      viewBtn.textContent = 'View';
+      viewBtn.onclick = () => viewClip(clip.filepath);
+      actions.appendChild(viewBtn);
+      
+      const deleteBtn = document.createElement('button');
+      deleteBtn.className = 'clip-action-btn';
+      deleteBtn.textContent = 'Delete';
+      deleteBtn.onclick = () => deleteClip(clip.filepath);
+      actions.appendChild(deleteBtn);
+      
+      info.appendChild(actions);
+      card.appendChild(info);
+      
+      return card;
+    }
+
+    // View clip in default viewer
+    async function viewClip(filepath) {
+      if (!window.electronAPI || !window.electronAPI.openClip) {
+        console.error('electronAPI.openClip not available');
+        return;
+      }
+
+      console.log('👁️ Opening clip:', filepath);
+      
+      try {
+        const result = await window.electronAPI.openClip(filepath);
+        if (!result.success) {
+          alert('Failed to open clip: ' + result.error);
+        }
+      } catch (error) {
+        console.error('❌ Exception opening clip:', error);
+        alert('Error opening clip: ' + error.message);
+      }
+    }
+
+    // Delete clip
+    async function deleteClip(filepath) {
+      if (!confirm('Are you sure you want to delete this clip?')) {
+        return;
+      }
+
+      if (!window.electronAPI || !window.electronAPI.deleteClip) {
+        console.error('electronAPI.deleteClip not available');
+        return;
+      }
+
+      console.log('🗑️ Deleting clip:', filepath);
+      
+      try {
+        const result = await window.electronAPI.deleteClip(filepath);
+        
+        if (result.success) {
+          console.log('✅ Clip deleted');
+          // Reload clips
+          await loadClips();
+        } else {
+          alert('Failed to delete clip: ' + result.error);
+        }
+      } catch (error) {
+        console.error('❌ Exception deleting clip:', error);
+        alert('Error deleting clip: ' + error.message);
+      }
+    }
+
+    // Refresh clips
+    async function refreshClips() {
+      console.log('🔄 Refreshing clips...');
+      await loadClips();
+    }
+
+    // Open clips folder
+    async function openClipsFolder() {
+      if (!window.electronAPI || !window.electronAPI.openClipsFolder) {
+        console.error('electronAPI.openClipsFolder not available');
+        return;
+      }
+
+      console.log('📁 Opening clips folder...');
+      
+      try {
+        const result = await window.electronAPI.openClipsFolder();
+        if (!result.success) {
+          alert('Failed to open clips folder: ' + result.error);
+        }
+      } catch (error) {
+        console.error('❌ Exception opening clips folder:', error);
+        alert('Error opening clips folder: ' + error.message);
+      }
+    }
+
+    // Load settings on page load
+    loadSettings();
+  </script>
+</body>
+</html>

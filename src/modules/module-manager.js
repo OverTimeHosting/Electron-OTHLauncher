@@ -373,7 +373,7 @@ class ModuleManager {
   }
 
   /**
-   * Get all installed modules
+   * Get all installed modules (including dev modules for testing)
    */
   getInstalledModules() {
     const modules = this.store.get('installed-modules', []);
@@ -384,6 +384,97 @@ class ModuleManager {
     });
 
     return modules;
+  }
+
+  /**
+   * Scan development modules folder for testing
+   * This allows developers to test modules without installing them
+   */
+  async scanDevModules() {
+    try {
+      // Development modules folder (in project root)
+      const devModulesPath = path.join(__dirname, '../../modules');
+      
+      console.log('🔍 Scanning dev modules folder:', devModulesPath);
+      
+      const devModules = [];
+      
+      // Check if dev modules folder exists
+      try {
+        await fs.access(devModulesPath);
+      } catch (error) {
+        console.log('📁 No dev modules folder found');
+        return devModules;
+      }
+      
+      // Read all directories in the modules folder
+      const entries = await fs.readdir(devModulesPath, { withFileTypes: true });
+      
+      for (const entry of entries) {
+        if (!entry.isDirectory()) continue;
+        
+        const modulePath = path.join(devModulesPath, entry.name);
+        const manifestPath = path.join(modulePath, 'module.json');
+        
+        try {
+          // Try to read module.json
+          const manifestContent = await fs.readFile(manifestPath, 'utf-8');
+          const manifest = JSON.parse(manifestContent);
+          
+          // Validate manifest
+          this.validateManifest(manifest);
+          
+          // Create a dev module entry
+          const devModule = {
+            ...manifest,
+            installPath: modulePath,
+            installedAt: new Date().toISOString(),
+            enabled: false,
+            isDev: true, // Mark as dev module
+            displayName: manifest.displayName || manifest.name,
+            description: manifest.description || 'Development module',
+            size: await this.calculateDirSize(modulePath),
+          };
+          
+          devModules.push(devModule);
+          console.log('✅ Found dev module:', devModule.displayName);
+          
+        } catch (error) {
+          console.log(`⚠️ Skipping ${entry.name}: ${error.message}`);
+        }
+      }
+      
+      console.log(`📦 Found ${devModules.length} dev modules`);
+      return devModules;
+      
+    } catch (error) {
+      console.error('❌ Failed to scan dev modules:', error);
+      return [];
+    }
+  }
+
+  /**
+   * Get all modules including dev modules for testing
+   */
+  async getAllModulesWithDev() {
+    const installed = this.getInstalledModules();
+    const devModules = await this.scanDevModules();
+    
+    // Combine installed and dev modules
+    // Dev modules override installed if same ID
+    const modulesMap = new Map();
+    
+    // Add installed modules
+    installed.forEach(m => modulesMap.set(m.id, m));
+    
+    // Add/override with dev modules
+    devModules.forEach(m => {
+      modulesMap.set(m.id, m);
+      // Also update in-memory map
+      this.installedModules.set(m.id, m);
+    });
+    
+    return Array.from(modulesMap.values());
   }
 
   /**

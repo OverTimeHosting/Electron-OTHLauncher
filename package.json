@@ -3,7 +3,7 @@
   "productName": "OTHLauncher",
   "version": "1.0.0",
   "description": "OTH Desktop Client - Professional Software & Hosting Solutions",
-  "main": "main.js",
+  "main": "src/main/main.js",
   "author": {
     "name": "OTH",
     "email": "contact@overtimehosting.com"
@@ -39,21 +39,16 @@
       "buildResources": "."
     },
     "files": [
-      "main.js",
-      "preload.js",
-      "module-manager.js",
-      "launcher.html",
-      "company.png",
-      "company.ico",
-      "company.gif",
-      "icon.svg",
-      "discord/**/*",
+      "src/**/*",
+      "assets/**/*",
+      "modules/**/*",
+      "build/**/*",
       "LICENSE"
     ],
     "extraResources": [
       {
-        "from": "company.png",
-        "to": "company.png"
+        "from": "assets",
+        "to": "assets"
       }
     ],
     "win": {
@@ -67,7 +62,7 @@
           "arch": ["x64"]
         }
       ],
-      "icon": "company.ico",
+      "icon": "assets/company.ico",
       "requestedExecutionLevel": "asInvoker",
       "artifactName": "${productName}-${version}-${arch}.${ext}"
     },
@@ -79,8 +74,8 @@
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
       "shortcutName": "OTHLauncher",
-      "installerIcon": "company.ico",
-      "uninstallerIcon": "company.ico",
+      "installerIcon": "assets/company.ico",
+      "uninstallerIcon": "assets/company.ico",
       "runAfterFinish": true,
       "deleteAppDataOnUninstall": true,
       "warningsAsErrors": false
@@ -99,16 +94,16 @@
           "arch": ["x64", "arm64"]
         }
       ],
-      "icon": "company.png",
+      "icon": "assets/company.png",
       "category": "public.app-category.utilities",
       "hardenedRuntime": true,
       "gatekeeperAssess": false,
-      "entitlements": "entitlements.mac.plist",
-      "entitlementsInherit": "entitlements.mac.plist"
+      "entitlements": "build/entitlements.mac.plist",
+      "entitlementsInherit": "build/entitlements.mac.plist"
     },
     "dmg": {
-      "background": "company.gif",
-      "icon": "company.png",
+      "background": "assets/company.gif",
+      "icon": "assets/company.png",
       "iconSize": 100,
       "contents": [
         {
@@ -143,7 +138,7 @@
           "arch": ["x64"]
         }
       ],
-      "icon": "company.png",
+      "icon": "assets/company.png",
       "category": "Utility",
       "synopsis": "OTH Desktop Client",
       "description": "Professional software and hosting solutions desktop client",

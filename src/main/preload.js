@@ -70,6 +70,16 @@ contextBridge.exposeInMainWorld('electronAPI', {
   getModuleSettings: (moduleId) => ipcRenderer.invoke('get-module-settings', moduleId),
   saveModuleSettings: (moduleId, settings) => ipcRenderer.invoke('save-module-settings', moduleId, settings),
   checkModuleUpdates: (moduleIds) => ipcRenderer.invoke('check-module-updates', moduleIds),
+  launchModuleWindow: (moduleId) => ipcRenderer.invoke('launch-module-window', moduleId),
+  
+  // Screen Capture (for clipper module)
+  captureRegion: (bounds) => ipcRenderer.invoke('capture-region', bounds),
+  cancelCapture: () => ipcRenderer.invoke('cancel-capture'),
+  captureFullscreen: () => ipcRenderer.invoke('capture-fullscreen'),
+  getClips: () => ipcRenderer.invoke('get-clips'),
+  deleteClip: (filepath) => ipcRenderer.invoke('delete-clip', filepath),
+  openClip: (filepath) => ipcRenderer.invoke('open-clip', filepath),
+  openClipsFolder: () => ipcRenderer.invoke('open-clips-folder'),
   
   // Module Dock
   toggleModuleDock: () => ipcRenderer.invoke('toggle-module-dock'),

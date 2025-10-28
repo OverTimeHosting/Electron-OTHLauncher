@@ -1,8 +1,9 @@
-const { app, BrowserWindow, ipcMain, Notification, safeStorage, shell, dialog, session } = require('electron');
+const { app, BrowserWindow, ipcMain, Notification, safeStorage, shell, dialog, session, globalShortcut } = require('electron');
 const path = require('path');
 const Store = require('electron-store');
-const ModuleManager = require('./module-manager');
-const ModuleDockManager = require('./module-dock-manager');
+const ModuleManager = require('../modules/module-manager');
+const ModuleDockManager = require('../modules/module-dock-manager');
+const ModuleWindowManager = require('../modules/module-window-manager');
 const fs = require('fs').promises;
 const https = require('https');
 const http = require('http');
@@ -14,7 +15,7 @@ app.setName('OTH Launcher');
 
 // Set macOS dock icon
 if (process.platform === 'darwin') {
-  app.dock?.setIcon(path.join(__dirname, 'company.png'));
+  app.dock?.setIcon(path.join(__dirname, '../../assets/company.png'));
 }
 
 // Handle unhandled promise rejections globally
@@ -25,7 +26,7 @@ process.on('unhandledRejection', (reason, promise) => {
 // Try to load Discord RPC (optional dependency)
 let DiscordPresenceManager;
 try {
-  DiscordPresenceManager = require('./discord/presence-manager');
+  DiscordPresenceManager = require('../discord/presence-manager');
 } catch (error) {
   console.log('Discord RPC not available. Run: npm install discord-rpc');
   DiscordPresenceManager = null;
@@ -76,6 +77,13 @@ ipcMain.handle('connect-to-store', async (event, credentials) => {
       
       // Load dashboard directly - it will handle signin invisibly
       mainWindow.loadURL(`${storeUrl}/dashboard#electron-login=${credentialsBase64}`);
+      
+      // Restore dock state after connection
+      setTimeout(() => {
+        if (dockManager) {
+          dockManager.restoreDockState(mainWindow);
+        }
+      }, 2000);
     }
     
     return { success: true, message: 'Connected to OTH Store' };
@@ -104,7 +112,7 @@ ipcMain.handle('user-logged-in', async (event, userEmail) => {
     new Notification({
       title: 'Welcome to OTH',
       body: `Logged in as ${userEmail}`,
-      icon: path.join(__dirname, 'company.png'),
+      icon: path.join(__dirname, '../../assets/company.png'),
     }).show();
   }
   return { success: true };
@@ -116,7 +124,7 @@ ipcMain.handle('user-logged-out', async () => {
     new Notification({
       title: 'OTH Client',
       body: 'You have been logged out',
-      icon: path.join(__dirname, 'company.png'),
+      icon: path.join(__dirname, '../../assets/company.png'),
     }).show();
   }
   return { success: true };
@@ -128,7 +136,7 @@ ipcMain.handle('show-notification', async (event, options) => {
     const notification = new Notification({
       title: options.title || 'OTH Notification',
       body: options.body || '',
-      icon: path.join(__dirname, 'company.png'),
+      icon: path.join(__dirname, '../../assets/company.png'),
       silent: options.silent || false,
       urgency: options.urgency || 'normal',
     });
@@ -683,7 +691,7 @@ ipcMain.handle('uninstall-app', async (event, marketplaceItemId) => {
       new Notification({
         title: 'Uninstallation Complete',
         body: `${app.title} has been removed from your system`,
-        icon: path.join(__dirname, 'company.png'),
+        icon: path.join(__dirname, '../../assets/company.png'),
       }).show();
     }
     
@@ -707,7 +715,7 @@ ipcMain.handle('uninstall-app', async (event, marketplaceItemId) => {
       new Notification({
         title: 'Uninstallation Failed',
         body: error.message,
-        icon: path.join(__dirname, 'company.png'),
+        icon: path.join(__dirname, '../../assets/company.png'),
       }).show();
     }
     
@@ -816,7 +824,7 @@ ipcMain.handle('download-module', async (event, moduleInfo) => {
       new Notification({
         title: 'Module Installed',
         body: `${displayName} has been installed successfully`,
-        icon: path.join(__dirname, 'company.png'),
+        icon: path.join(__dirname, '../../assets/company.png'),
       }).show();
     }
 
@@ -827,14 +835,15 @@ ipcMain.handle('download-module', async (event, moduleInfo) => {
   }
 });
 
-// Get installed modules
+// Get installed modules (including dev modules for testing)
 ipcMain.handle('get-installed-modules', async () => {
   try {
     if (!moduleManager) {
       throw new Error('Module manager not initialized');
     }
 
-    const modules = moduleManager.getInstalledModules();
+    // Use getAllModulesWithDev to include modules from the /modules folder for testing
+    const modules = await moduleManager.getAllModulesWithDev();
     return { success: true, modules };
   } catch (error) {
     console.error('Failed to get installed modules:', error);
@@ -855,7 +864,7 @@ ipcMain.handle('uninstall-module', async (event, moduleId) => {
       new Notification({
         title: 'Module Uninstalled',
         body: result.message,
-        icon: path.join(__dirname, 'company.png'),
+        icon: path.join(__dirname, '../../assets/company.png'),
       }).show();
     }
 
@@ -866,11 +875,25 @@ ipcMain.handle('uninstall-module', async (event, moduleId) => {
   }
 });
 
-// Enable a module
+// Enable a module (including dev modules)
 ipcMain.handle('enable-module', async (event, moduleId) => {
   try {
     if (!moduleManager) {
       throw new Error('Module manager not initialized');
+    }
+
+    // Check if it's a dev module - if so, just load it without saving to store
+    const module = moduleManager.getInstalledModule(moduleId);
+    if (module && module.isDev) {
+      console.log('🔌 Enabling dev module:', module.displayName);
+      await moduleManager.loadModule(module);
+      module.enabled = true;
+      moduleManager.installedModules.set(moduleId, module);
+      moduleManager.activeModules.set(moduleId, module);
+      return {
+        success: true,
+        message: `${module.displayName} enabled (dev mode)`,
+      };
     }
 
     const result = await moduleManager.enableModule(moduleId);
@@ -881,11 +904,25 @@ ipcMain.handle('enable-module', async (event, moduleId) => {
   }
 });
 
-// Disable a module
+// Disable a module (including dev modules)
 ipcMain.handle('disable-module', async (event, moduleId) => {
   try {
     if (!moduleManager) {
       throw new Error('Module manager not initialized');
+    }
+
+    // Check if it's a dev module - if so, just unload it without saving to store
+    const module = moduleManager.getInstalledModule(moduleId);
+    if (module && module.isDev) {
+      console.log('🔌 Disabling dev module:', module.displayName);
+      await moduleManager.unloadModule(module);
+      module.enabled = false;
+      moduleManager.installedModules.set(moduleId, module);
+      moduleManager.activeModules.delete(moduleId);
+      return {
+        success: true,
+        message: `${module.displayName} disabled (dev mode)`,
+      };
     }
 
     const result = await moduleManager.disableModule(moduleId);
@@ -938,6 +975,387 @@ ipcMain.handle('check-module-updates', async (event, moduleIds) => {
   } catch (error) {
     console.error('Failed to check module updates:', error);
     return { success: false, error: error.message, updates: [] };
+  }
+});
+
+// Launch module window
+ipcMain.handle('launch-module-window', async (event, moduleId) => {
+  try {
+    console.log('🚀 [IPC] Launch module window request for:', moduleId);
+    
+    if (!moduleManager || !mainWindow) {
+      throw new Error('Module manager or main window not initialized');
+    }
+
+    const module = moduleManager.getInstalledModule(moduleId);
+    if (!module) {
+      console.error('❌ Module not found:', moduleId);
+      throw new Error('Module not found');
+    }
+
+    console.log('📦 Module found:', module.displayName);
+    console.log('🏠 Has window:', module.hasWindow);
+    console.log('📄 Window file:', module.window);
+    console.log('📁 Install path:', module.installPath);
+
+    // Get dock window if available
+    const dockWindow = dockManager ? dockManager.getDockWindow() : null;
+    console.log('🎨 Dock window available:', !!dockWindow);
+
+    const result = await ModuleWindowManager.launchModuleWindow(module, mainWindow, dockWindow);
+    console.log('✅ Module window manager result:', result);
+    return result;
+  } catch (error) {
+    console.error('❌ Failed to launch module window:', error);
+    console.error('Stack trace:', error.stack);
+    return { success: false, error: error.message };
+  }
+});
+
+// ===== SCREEN CAPTURE HANDLERS (For Clipper Module) =====
+
+let captureOverlayWindow = null;
+
+// Capture region
+ipcMain.handle('capture-region', async (event, bounds) => {
+  try {
+    console.log('📸 Capturing region:', bounds);
+    
+    const { desktopCapturer, nativeImage, clipboard, screen: electronScreen, Notification: ElectronNotification } = require('electron');
+    
+    // CRITICAL: Hide the capture overlay window BEFORE taking the screenshot
+    if (captureOverlayWindow && !captureOverlayWindow.isDestroyed()) {
+      captureOverlayWindow.hide();
+      // Wait a moment for the window to actually disappear from screen
+      await new Promise(resolve => setTimeout(resolve, 100));
+    }
+    
+    // Get all screens
+    const sources = await desktopCapturer.getSources({
+      types: ['screen'],
+      thumbnailSize: electronScreen.getPrimaryDisplay().size
+    });
+
+    if (sources.length === 0) {
+      throw new Error('No screens found');
+    }
+
+    // Use primary screen
+    const primaryScreen = sources[0];
+    const fullImage = primaryScreen.thumbnail;
+    
+    // Get scale factor
+    const scaleFactor = electronScreen.getPrimaryDisplay().scaleFactor;
+    
+    // Crop to selected region with scale factor
+    const croppedImage = fullImage.crop({
+      x: Math.floor(bounds.x * scaleFactor),
+      y: Math.floor(bounds.y * scaleFactor),
+      width: Math.floor(bounds.width * scaleFactor),
+      height: Math.floor(bounds.height * scaleFactor)
+    });
+
+    // Get module settings
+    const settings = moduleManager ? moduleManager.getModuleSettings('screen-clipper-v1') : {};
+    
+    // Copy to clipboard if enabled
+    if (settings.copyToClipboard !== false) {
+      clipboard.writeImage(croppedImage);
+      console.log('📋 Image copied to clipboard');
+    }
+
+    // Auto-save if enabled
+    let savedPath = null;
+    if (settings.autoSave !== false) {
+      savedPath = await saveScreenshot(croppedImage, settings);
+      console.log('💾 Screenshot saved:', savedPath);
+    }
+
+    // Show notification if enabled
+    if (settings.showNotification !== false) {
+      if (Notification.isSupported()) {
+        new Notification({
+          title: 'Screenshot Captured',
+          body: savedPath ? `Saved to ${path.basename(savedPath)}` : 'Copied to clipboard',
+          icon: path.join(__dirname, '../../assets/company.png'),
+        }).show();
+      }
+    }
+
+    // Close capture overlay
+    if (captureOverlayWindow && !captureOverlayWindow.isDestroyed()) {
+      captureOverlayWindow.close();
+      captureOverlayWindow = null;
+    }
+
+    return { success: true, path: savedPath };
+  } catch (error) {
+    console.error('❌ Failed to capture region:', error);
+    return { success: false, error: error.message };
+  }
+});
+
+// Cancel capture
+ipcMain.handle('cancel-capture', async () => {
+  try {
+    console.log('❌ Canceling capture');
+    
+    if (captureOverlayWindow && !captureOverlayWindow.isDestroyed()) {
+      captureOverlayWindow.close();
+      captureOverlayWindow = null;
+    }
+    
+    return { success: true };
+  } catch (error) {
+    console.error('❌ Failed to cancel capture:', error);
+    return { success: false, error: error.message };
+  }
+});
+
+// Capture fullscreen
+ipcMain.handle('capture-fullscreen', async () => {
+  try {
+    console.log('📸 Capturing fullscreen');
+    
+    const { desktopCapturer, clipboard, screen: electronScreen, Notification: ElectronNotification } = require('electron');
+    
+    // Hide any capture overlay if open
+    if (captureOverlayWindow && !captureOverlayWindow.isDestroyed()) {
+      captureOverlayWindow.hide();
+      await new Promise(resolve => setTimeout(resolve, 100));
+    }
+    
+    const sources = await desktopCapturer.getSources({
+      types: ['screen'],
+      thumbnailSize: electronScreen.getPrimaryDisplay().size
+    });
+
+    if (sources.length === 0) {
+      throw new Error('No screens found');
+    }
+
+    const primaryScreen = sources[0];
+    const image = primaryScreen.thumbnail;
+    
+    // Get module settings
+    const settings = moduleManager ? moduleManager.getModuleSettings('screen-clipper-v1') : {};
+    
+    // Copy to clipboard if enabled
+    if (settings.copyToClipboard !== false) {
+      clipboard.writeImage(image);
+      console.log('📋 Image copied to clipboard');
+    }
+
+    // Auto-save if enabled
+    let savedPath = null;
+    if (settings.autoSave !== false) {
+      savedPath = await saveScreenshot(image, settings);
+      console.log('💾 Screenshot saved:', savedPath);
+    }
+
+    // Show notification if enabled
+    if (settings.showNotification !== false) {
+      if (Notification.isSupported()) {
+        new Notification({
+          title: 'Screenshot Captured',
+          body: savedPath ? `Saved to ${path.basename(savedPath)}` : 'Copied to clipboard',
+          icon: path.join(__dirname, '../../assets/company.png'),
+        }).show();
+      }
+    }
+
+    return { success: true, path: savedPath };
+  } catch (error) {
+    console.error('❌ Failed to capture fullscreen:', error);
+    return { success: false, error: error.message };
+  }
+});
+
+// Helper function to save screenshot
+async function saveScreenshot(image, settings) {
+  try {
+    // Get save location
+    let saveDir = settings.saveLocation || path.join(app.getPath('pictures'), 'OTH Clips');
+    
+    // Create directory if it doesn't exist
+    await fs.mkdir(saveDir, { recursive: true });
+
+    // Generate filename
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, -5);
+    const format = settings.imageFormat || 'png';
+    const filename = `screenshot-${timestamp}.${format}`;
+    const filepath = path.join(saveDir, filename);
+
+    // Get image buffer based on format
+    let buffer;
+    if (format === 'jpg' || format === 'jpeg') {
+      const quality = settings.jpegQuality || 90;
+      buffer = image.toJPEG(quality);
+    } else if (format === 'webp') {
+      buffer = image.toPNG(); // Electron doesn't support webp export, use PNG
+    } else {
+      buffer = image.toPNG();
+    }
+
+    // Save file
+    await fs.writeFile(filepath, buffer);
+    
+    return filepath;
+  } catch (error) {
+    console.error('Failed to save screenshot:', error);
+    throw error;
+  }
+}
+
+// Function to open capture overlay
+function openCaptureOverlay() {
+  try {
+    // Close existing overlay if open
+    if (captureOverlayWindow && !captureOverlayWindow.isDestroyed()) {
+      captureOverlayWindow.close();
+    }
+
+    console.log('📸 Opening capture overlay');
+
+    // Get primary display bounds
+    const { screen } = require('electron');
+    const primaryDisplay = screen.getPrimaryDisplay();
+    const { width, height } = primaryDisplay.bounds;
+
+    // Create fullscreen overlay window
+    captureOverlayWindow = new BrowserWindow({
+      width: width,
+      height: height,
+      x: 0,
+      y: 0,
+      transparent: true,
+      frame: false,
+      alwaysOnTop: true,
+      skipTaskbar: true,
+      resizable: false,
+      movable: false,
+      fullscreen: true,
+      webPreferences: {
+        preload: path.join(__dirname, 'preload.js'),
+        contextIsolation: true,
+        nodeIntegration: false,
+      },
+    });
+
+    // Load clipper HTML
+    const clipperPath = path.join(__dirname, '../../modules/screen-clipper/clipper.html');
+    captureOverlayWindow.loadFile(clipperPath);
+
+    // Handle window close
+    captureOverlayWindow.on('closed', () => {
+      captureOverlayWindow = null;
+    });
+
+    console.log('✅ Capture overlay opened');
+  } catch (error) {
+    console.error('❌ Failed to open capture overlay:', error);
+  }
+}
+
+// Get all clips from save directory
+ipcMain.handle('get-clips', async () => {
+  try {
+    const settings = moduleManager ? moduleManager.getModuleSettings('screen-clipper-v1') : {};
+    let saveDir = settings.saveLocation || path.join(app.getPath('pictures'), 'OTH Clips');
+    
+    console.log('📂 Loading clips from:', saveDir);
+    
+    // Check if directory exists
+    try {
+      await fs.access(saveDir);
+    } catch (error) {
+      // Directory doesn't exist yet
+      return { success: true, clips: [] };
+    }
+    
+    // Read directory
+    const files = await fs.readdir(saveDir);
+    
+    // Filter for image files
+    const imageExtensions = ['.png', '.jpg', '.jpeg', '.webp'];
+    const imageFiles = files.filter(file => {
+      const ext = path.extname(file).toLowerCase();
+      return imageExtensions.includes(ext);
+    });
+    
+    // Get file info for each image
+    const clips = await Promise.all(imageFiles.map(async (filename) => {
+      const filepath = path.join(saveDir, filename);
+      const stats = await fs.stat(filepath);
+      
+      return {
+        filename,
+        filepath,
+        size: stats.size,
+        created: stats.birthtime,
+        modified: stats.mtime,
+      };
+    }));
+    
+    // Sort by creation date (newest first)
+    clips.sort((a, b) => b.created.getTime() - a.created.getTime());
+    
+    console.log(`✅ Found ${clips.length} clips`);
+    
+    return { success: true, clips };
+  } catch (error) {
+    console.error('❌ Failed to get clips:', error);
+    return { success: false, error: error.message, clips: [] };
+  }
+});
+
+// Delete a clip
+ipcMain.handle('delete-clip', async (event, filepath) => {
+  try {
+    console.log('🗑️ Deleting clip:', filepath);
+    
+    await fs.unlink(filepath);
+    
+    console.log('✅ Clip deleted');
+    
+    return { success: true };
+  } catch (error) {
+    console.error('❌ Failed to delete clip:', error);
+    return { success: false, error: error.message };
+  }
+});
+
+// Open clip in default viewer
+ipcMain.handle('open-clip', async (event, filepath) => {
+  try {
+    console.log('👁️ Opening clip:', filepath);
+    
+    await shell.openPath(filepath);
+    
+    return { success: true };
+  } catch (error) {
+    console.error('❌ Failed to open clip:', error);
+    return { success: false, error: error.message };
+  }
+});
+
+// Open clips folder
+ipcMain.handle('open-clips-folder', async () => {
+  try {
+    const settings = moduleManager ? moduleManager.getModuleSettings('screen-clipper-v1') : {};
+    let saveDir = settings.saveLocation || path.join(app.getPath('pictures'), 'OTH Clips');
+    
+    console.log('📁 Opening clips folder:', saveDir);
+    
+    // Create directory if it doesn't exist
+    await fs.mkdir(saveDir, { recursive: true });
+    
+    await shell.openPath(saveDir);
+    
+    return { success: true };
+  } catch (error) {
+    console.error('❌ Failed to open clips folder:', error);
+    return { success: false, error: error.message };
   }
 });
 
@@ -1434,7 +1852,7 @@ ipcMain.handle('open-ai-chat', async () => {
       backgroundColor: '#000000',
       frame: false,
       title: 'AI Assistant',
-      icon: path.join(__dirname, 'company.png'),
+      icon: path.join(__dirname, '../../assets/company.png'),
       parent: mainWindow,
       modal: false,
       show: false,
@@ -1542,9 +1960,9 @@ function createDockButton() {
 
   dockButtonWindow = new BrowserWindow({
     width: 70,
-    height: 90,
+    height: 70,
     x: mainBounds.x + mainBounds.width + 2, // Match dock gap
-    y: mainBounds.y + Math.floor(mainBounds.height / 2) - 45,
+    y: mainBounds.y + 40, // Start near the top (below title bar)
     frame: false,
     transparent: true,
     alwaysOnTop: false, // Will be managed based on main window focus
@@ -1562,7 +1980,7 @@ function createDockButton() {
     },
   });
 
-  dockButtonWindow.loadFile(path.join(__dirname, 'dock-button-overlay.html'));
+  dockButtonWindow.loadFile(path.join(__dirname, '../renderer/dock-button-overlay.html'));
 
   dockButtonWindow.once('ready-to-show', () => {
     dockButtonWindow.show();
@@ -1622,7 +2040,7 @@ function updateDockButtonPosition() {
   const mainBounds = mainWindow.getBounds();
   dockButtonWindow.setPosition(
     mainBounds.x + mainBounds.width + 2, // Match dock gap
-    mainBounds.y + Math.floor(mainBounds.height / 2) - 45
+    mainBounds.y + 40 // Start near the top
   );
 }
 
@@ -1709,7 +2127,7 @@ function createWindow() {
     backgroundColor: '#0f172a',
     frame: false,
     title: 'OTH Launcher',
-    icon: path.join(__dirname, 'company.png'),
+    icon: path.join(__dirname, '../../assets/company.png'),
     show: false, // Don't show until ready
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
@@ -1738,7 +2156,7 @@ function createWindow() {
   // Note: Electron manages cache automatically, size is controlled via app.getPath('userData')
 
   // Load the local launcher page first
-  mainWindow.loadFile(path.join(__dirname, 'launcher.html'));
+  mainWindow.loadFile(path.join(__dirname, '../renderer/launcher.html'));
 
   // Show window when ready
   mainWindow.once('ready-to-show', () => {
@@ -1751,14 +2169,14 @@ function createWindow() {
     if (url === 'about:blank') {
       console.log('User logged out, returning to launcher...');
       event.preventDefault();
-      mainWindow.loadFile(path.join(__dirname, 'launcher.html'));
+      mainWindow.loadFile(path.join(__dirname, '../renderer/launcher.html'));
     }
   });
 
   mainWindow.webContents.on('did-navigate', (event, url) => {
     if (url === 'about:blank') {
       console.log('Navigation to about:blank detected, loading launcher...');
-      mainWindow.loadFile(path.join(__dirname, 'launcher.html'));
+      mainWindow.loadFile(path.join(__dirname, '../renderer/launcher.html'));
     }
   });
 
@@ -1801,6 +2219,15 @@ function createWindow() {
         });
       }
     `);
+    
+    // Check if we're on the dashboard page and restore dock if needed
+    mainWindow.webContents.executeJavaScript('window.location.pathname').then(pathname => {
+      if (pathname && pathname.includes('dashboard') && dockManager) {
+        setTimeout(() => {
+          dockManager.restoreDockState(mainWindow);
+        }, 1500);
+      }
+    }).catch(() => {});
   });
 
   mainWindow.on('closed', () => {
@@ -1836,10 +2263,24 @@ app.whenReady().then(async () => {
   
   // Initialize Module Dock Manager
   dockManager = new ModuleDockManager();
+  dockManager.setStore(store); // Pass store for state persistence
   console.log('🎨 Module Dock Manager initialized');
   
   // Load all enabled modules
   await moduleManager.loadAllModules();
+
+  // Register global hotkey for screen capture
+  const captureHotkey = 'CommandOrControl+Shift+S';
+  const registered = globalShortcut.register(captureHotkey, () => {
+    console.log('⏸️ Hotkey pressed:', captureHotkey);
+    openCaptureOverlay();
+  });
+
+  if (registered) {
+    console.log('✅ Screen capture hotkey registered:', captureHotkey);
+  } else {
+    console.warn('⚠️ Failed to register hotkey:', captureHotkey);
+  }
 
   createWindow();
 
@@ -1890,4 +2331,7 @@ app.on('before-quit', async () => {
   if (discordPresence) {
     await discordPresence.destroy();
   }
+  
+  // Unregister all global shortcuts
+  globalShortcut.unregisterAll();
 });

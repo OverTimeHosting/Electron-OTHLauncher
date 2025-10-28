@@ -43,7 +43,7 @@ class DockOverlayManager {
       focusable: false,
       show: false,
       webPreferences: {
-        preload: path.join(__dirname, 'preload.js'),
+        preload: path.join(__dirname, '../main/preload.js'),
         contextIsolation: true,
         nodeIntegration: false,
       },
@@ -52,7 +52,7 @@ class DockOverlayManager {
     // Make window click-through except for the button
     this.overlayWindow.setIgnoreMouseEvents(true, { forward: true });
 
-    this.overlayWindow.loadFile(path.join(__dirname, 'dock-overlay.html'));
+    this.overlayWindow.loadFile(path.join(__dirname, '../renderer/dock-button-overlay.html'));
 
     this.overlayWindow.once('ready-to-show', () => {
       this.overlayWindow.show();
