@@ -85,4 +85,15 @@ contextBridge.exposeInMainWorld('electronAPI', {
   toggleModuleDock: () => ipcRenderer.invoke('toggle-module-dock'),
   isDockDetached: () => ipcRenderer.invoke('is-dock-detached'),
   closeModuleDock: () => ipcRenderer.invoke('close-module-dock'),
+  
+  // App Version and Updates
+  getAppVersion: () => ipcRenderer.invoke('get-app-version'),
+  checkForUpdates: () => ipcRenderer.send('check-for-updates'),
+  downloadUpdate: () => ipcRenderer.send('download-update'),
+  installUpdate: () => ipcRenderer.send('install-update'),
+  onUpdateStatus: (callback) => {
+    const listener = (event, data) => callback(data);
+    ipcRenderer.on('update-status', listener);
+    return () => ipcRenderer.removeListener('update-status', listener);
+  },
 });

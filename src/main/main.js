@@ -4,6 +4,7 @@ const Store = require('electron-store');
 const ModuleManager = require('../modules/module-manager');
 const ModuleDockManager = require('../modules/module-dock-manager');
 const ModuleWindowManager = require('../modules/module-window-manager');
+const UpdateManager = require('../updates/update-manager');
 const fs = require('fs').promises;
 const https = require('https');
 const http = require('http');
@@ -43,6 +44,7 @@ let pendingLoginCredentials = null;
 let moduleManager = null;
 let dockManager = null;
 let dockButtonWindow = null; // Floating dock button window
+let updateManager = null; // Update manager for auto-updates
 
 const DISCORD_CLIENT_ID = '1348861044604534835';
 
@@ -205,6 +207,34 @@ ipcMain.handle('clear-credentials', async () => {
   } catch (error) {
     console.error('Failed to clear credentials:', error);
     return { success: false, error: error.message };
+  }
+});
+
+// ===== UPDATE HANDLERS =====
+
+// Get app version
+ipcMain.handle('get-app-version', () => {
+  return app.getVersion();
+});
+
+// Update check
+ipcMain.on('check-for-updates', () => {
+  if (updateManager) {
+    updateManager.checkForUpdates();
+  }
+});
+
+// Download update
+ipcMain.on('download-update', () => {
+  if (updateManager) {
+    updateManager.downloadUpdate();
+  }
+});
+
+// Install update and restart
+ipcMain.on('install-update', () => {
+  if (updateManager) {
+    updateManager.quitAndInstall();
   }
 });
 
@@ -2162,6 +2192,17 @@ function createWindow() {
   mainWindow.once('ready-to-show', () => {
     mainWindow.show();
     mainWindow.focus();
+    
+    // Initialize update manager after window is shown
+    updateManager = new UpdateManager(mainWindow);
+    console.log('🔄 Update Manager initialized');
+    
+    // Check for updates after 3 seconds
+    setTimeout(() => {
+      if (updateManager) {
+        updateManager.checkForUpdates();
+      }
+    }, 3000);
   });
 
   // Listen for navigation events

@@ -1,7 +1,7 @@
 {
   "name": "OTHLauncher",
   "productName": "OTHLauncher",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "OTH Desktop Client - Professional Software & Hosting Solutions",
   "main": "src/main/main.js",
   "author": {
@@ -181,7 +181,7 @@
     "publish": [
       {
         "provider": "github",
-        "owner": "YOUR_GITHUB_USERNAME",
+        "owner": "OverTimeHosting",
         "repo": "Electron-OTHLauncher",
         "private": true,
         "releaseType": "release"
