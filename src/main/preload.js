@@ -61,6 +61,42 @@ contextBridge.exposeInMainWorld('electronAPI', {
   readFile: (filePath) => ipcRenderer.invoke('read-file', filePath),
   readFolder: (folderPath) => ipcRenderer.invoke('read-folder', folderPath),
   
+  // Download Queue Management
+  getDownloadQueues: () => ipcRenderer.invoke('get-download-queues'),
+  addToDownloadQueue: (moduleInfo) => ipcRenderer.invoke('add-to-download-queue', moduleInfo),
+  startNextDownload: () => ipcRenderer.invoke('start-next-download'),
+  moveToUpNext: (downloadId) => ipcRenderer.invoke('move-to-up-next', downloadId),
+  moveToScheduled: (downloadId) => ipcRenderer.invoke('move-to-scheduled', downloadId),
+  removeFromQueue: (downloadId) => ipcRenderer.invoke('remove-from-queue', downloadId),
+  clearCompleted: () => ipcRenderer.invoke('clear-completed'),
+  removeFromCompleted: (downloadId) => ipcRenderer.invoke('remove-from-completed', downloadId),
+  installFromDownload: (downloadId) => ipcRenderer.invoke('install-from-download', downloadId),
+  onDownloadStarted: (callback) => {
+    const listener = (event, data) => callback(data);
+    ipcRenderer.on('download-started', listener);
+    return () => ipcRenderer.removeListener('download-started', listener);
+  },
+  onDownloadProgress: (callback) => {
+    const listener = (event, data) => callback(data);
+    ipcRenderer.on('download-progress', listener);
+    return () => ipcRenderer.removeListener('download-progress', listener);
+  },
+  onDownloadComplete: (callback) => {
+    const listener = (event, data) => callback(data);
+    ipcRenderer.on('download-complete', listener);
+    return () => ipcRenderer.removeListener('download-complete', listener);
+  },
+  onDownloadError: (callback) => {
+    const listener = (event, data) => callback(data);
+    ipcRenderer.on('download-error', listener);
+    return () => ipcRenderer.removeListener('download-error', listener);
+  },
+  onQueuesUpdated: (callback) => {
+    const listener = (event, data) => callback(data);
+    ipcRenderer.on('queues-updated', listener);
+    return () => ipcRenderer.removeListener('queues-updated', listener);
+  },
+  
   // Module Management (Enhanced)
   downloadModule: (moduleInfo) => ipcRenderer.invoke('download-module', moduleInfo),
   getInstalledModules: () => ipcRenderer.invoke('get-installed-modules'),

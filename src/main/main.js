@@ -5,6 +5,7 @@ const ModuleManager = require('../modules/module-manager');
 const ModuleDockManager = require('../modules/module-dock-manager');
 const ModuleWindowManager = require('../modules/module-window-manager');
 const UpdateManager = require('../updates/update-manager');
+const DownloadQueueManager = require('../downloads/download-queue-manager');
 const fs = require('fs').promises;
 const https = require('https');
 const http = require('http');
@@ -45,6 +46,7 @@ let moduleManager = null;
 let dockManager = null;
 let dockButtonWindow = null; // Floating dock button window
 let updateManager = null; // Update manager for auto-updates
+let downloadQueueManager = null; // Download queue manager
 
 const DISCORD_CLIENT_ID = '1348861044604534835';
 
@@ -767,6 +769,164 @@ ipcMain.handle('open-install-location', async (event, marketplaceItemId) => {
     return { success: true };
   } catch (error) {
     console.error('Failed to open install location:', error);
+    return { success: false, error: error.message };
+  }
+});
+
+// ===== DOWNLOAD QUEUE HANDLERS =====
+
+// Get all download queues
+ipcMain.handle('get-download-queues', async () => {
+  try {
+    if (!downloadQueueManager) {
+      throw new Error('Download queue manager not initialized');
+    }
+
+    const queues = downloadQueueManager.getAllQueues();
+    const stats = downloadQueueManager.getStats();
+
+    return { success: true, queues, stats };
+  } catch (error) {
+    console.error('Failed to get download queues:', error);
+    return { success: false, error: error.message, queues: { scheduled: [], upNext: [], complete: [], activeDownloads: [] }, stats: { scheduled: 0, upNext: 0, complete: 0, active: 0, paused: 0 } };
+  }
+});
+
+// Add module to download queue
+ipcMain.handle('add-to-download-queue', async (event, moduleInfo) => {
+  try {
+    if (!downloadQueueManager) {
+      throw new Error('Download queue manager not initialized');
+    }
+
+    const download = downloadQueueManager.addToQueue(moduleInfo);
+    return { success: true, download };
+  } catch (error) {
+    console.error('Failed to add to download queue:', error);
+    return { success: false, error: error.message };
+  }
+});
+
+// Start next download
+ipcMain.handle('start-next-download', async () => {
+  try {
+    if (!downloadQueueManager) {
+      throw new Error('Download queue manager not initialized');
+    }
+
+    const download = await downloadQueueManager.startNextDownload();
+    return { success: true, download };
+  } catch (error) {
+    console.error('Failed to start next download:', error);
+    return { success: false, error: error.message };
+  }
+});
+
+// Move to up next
+ipcMain.handle('move-to-up-next', async (event, downloadId) => {
+  try {
+    if (!downloadQueueManager) {
+      throw new Error('Download queue manager not initialized');
+    }
+
+    const download = downloadQueueManager.moveToUpNext(downloadId);
+    return { success: true, download };
+  } catch (error) {
+    console.error('Failed to move to up next:', error);
+    return { success: false, error: error.message };
+  }
+});
+
+// Move to scheduled
+ipcMain.handle('move-to-scheduled', async (event, downloadId) => {
+  try {
+    if (!downloadQueueManager) {
+      throw new Error('Download queue manager not initialized');
+    }
+
+    const download = downloadQueueManager.moveToScheduled(downloadId);
+    return { success: true, download };
+  } catch (error) {
+    console.error('Failed to move to scheduled:', error);
+    return { success: false, error: error.message };
+  }
+});
+
+// Remove from queue
+ipcMain.handle('remove-from-queue', async (event, downloadId) => {
+  try {
+    if (!downloadQueueManager) {
+      throw new Error('Download queue manager not initialized');
+    }
+
+    const result = downloadQueueManager.removeFromQueue(downloadId);
+    return { success: result };
+  } catch (error) {
+    console.error('Failed to remove from queue:', error);
+    return { success: false, error: error.message };
+  }
+});
+
+// Clear completed downloads
+ipcMain.handle('clear-completed', async () => {
+  try {
+    if (!downloadQueueManager) {
+      throw new Error('Download queue manager not initialized');
+    }
+
+    downloadQueueManager.clearCompleted();
+    return { success: true };
+  } catch (error) {
+    console.error('Failed to clear completed:', error);
+    return { success: false, error: error.message };
+  }
+});
+
+// Remove from completed
+ipcMain.handle('remove-from-completed', async (event, downloadId) => {
+  try {
+    if (!downloadQueueManager) {
+      throw new Error('Download queue manager not initialized');
+    }
+
+    const result = downloadQueueManager.removeFromCompleted(downloadId);
+    return { success: result };
+  } catch (error) {
+    console.error('Failed to remove from completed:', error);
+    return { success: false, error: error.message };
+  }
+});
+
+// Install from downloaded file
+ipcMain.handle('install-from-download', async (event, downloadId) => {
+  try {
+    if (!downloadQueueManager || !moduleManager) {
+      throw new Error('Manager not initialized');
+    }
+
+    const download = downloadQueueManager.getDownload(downloadId);
+    if (!download) {
+      throw new Error('Download not found');
+    }
+
+    if (download.status !== 'complete') {
+      throw new Error('Download not complete');
+    }
+
+    // Install the module using ModuleManager
+    const result = await moduleManager.installModule(download.filePath, download);
+    
+    if (Notification.isSupported()) {
+      new Notification({
+        title: 'Module Installed',
+        body: `${download.displayName} has been installed successfully`,
+        icon: path.join(__dirname, '../../assets/company.png'),
+      }).show();
+    }
+
+    return result;
+  } catch (error) {
+    console.error('❌ Install from download failed:', error);
     return { success: false, error: error.message };
   }
 });
@@ -2306,6 +2466,51 @@ app.whenReady().then(async () => {
   dockManager = new ModuleDockManager();
   dockManager.setStore(store); // Pass store for state persistence
   console.log('🎨 Module Dock Manager initialized');
+  
+  // Initialize Download Queue Manager
+  downloadQueueManager = new DownloadQueueManager(store);
+  console.log('📥 Download Queue Manager initialized');
+  
+  // Setup download queue event listeners
+  downloadQueueManager.on('download-started', (download) => {
+    console.log('📥 Download started:', download.displayName);
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('download-started', download);
+    }
+  });
+  
+  downloadQueueManager.on('download-progress', (download) => {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('download-progress', download);
+    }
+  });
+  
+  downloadQueueManager.on('download-complete', (download) => {
+    console.log('✅ Download complete:', download.displayName);
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('download-complete', download);
+    }
+    if (Notification.isSupported()) {
+      new Notification({
+        title: 'Download Complete',
+        body: `${download.displayName} has finished downloading`,
+        icon: path.join(__dirname, '../../assets/company.png'),
+      }).show();
+    }
+  });
+  
+  downloadQueueManager.on('download-error', (download) => {
+    console.error('❌ Download error:', download.displayName, download.error);
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('download-error', download);
+    }
+  });
+  
+  downloadQueueManager.on('queues-updated', (queues) => {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('queues-updated', queues);
+    }
+  });
   
   // Load all enabled modules
   await moduleManager.loadAllModules();
