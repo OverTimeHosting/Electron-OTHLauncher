@@ -12,18 +12,22 @@
   "scripts": {
     "start": "electron .",
     "dev": "electron . --inspect",
-    "build": "electron-builder",
-    "build:win": "electron-builder --win",
-    "build:mac": "electron-builder --mac",
-    "build:linux": "electron-builder --linux",
-    "build:all": "electron-builder -mwl",
+    "build": "electron-builder --publish never",
+    "build:publish": "electron-builder --win --publish always",
+    "build:win": "electron-builder --win --publish never",
+    "build:mac": "electron-builder --mac --publish never",
+    "build:linux": "electron-builder --linux --publish never",
+    "build:all": "electron-builder -mwl --publish never",
     "pack": "electron-builder --dir",
-    "dist": "electron-builder"
+    "dist": "electron-builder",
+    "release": "electron-builder --win --publish always"
   },
   "dependencies": {
     "adm-zip": "^0.5.10",
     "discord-rpc": "^4.0.1",
+    "electron-log": "^5.4.3",
     "electron-store": "^8.1.0",
+    "electron-updater": "^6.6.2",
     "mime-types": "^2.1.35"
   },
   "devDependencies": {
@@ -55,11 +59,16 @@
       "target": [
         {
           "target": "nsis",
-          "arch": ["x64", "ia32"]
+          "arch": [
+            "x64",
+            "ia32"
+          ]
         },
         {
           "target": "portable",
-          "arch": ["x64"]
+          "arch": [
+            "x64"
+          ]
         }
       ],
       "icon": "assets/company.ico",
@@ -87,11 +96,17 @@
       "target": [
         {
           "target": "dmg",
-          "arch": ["x64", "arm64"]
+          "arch": [
+            "x64",
+            "arm64"
+          ]
         },
         {
           "target": "zip",
-          "arch": ["x64", "arm64"]
+          "arch": [
+            "x64",
+            "arm64"
+          ]
         }
       ],
       "icon": "assets/company.png",
@@ -127,15 +142,21 @@
       "target": [
         {
           "target": "AppImage",
-          "arch": ["x64"]
+          "arch": [
+            "x64"
+          ]
         },
         {
           "target": "deb",
-          "arch": ["x64"]
+          "arch": [
+            "x64"
+          ]
         },
         {
           "target": "rpm",
-          "arch": ["x64"]
+          "arch": [
+            "x64"
+          ]
         }
       ],
       "icon": "assets/company.png",
@@ -157,6 +178,14 @@
         "libnss3"
       ]
     },
-    "publish": null
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "YOUR_GITHUB_USERNAME",
+        "repo": "Electron-OTHLauncher",
+        "private": true,
+        "releaseType": "release"
+      }
+    ]
   }
 }

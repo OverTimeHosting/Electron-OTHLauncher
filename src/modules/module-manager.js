@@ -129,6 +129,38 @@ class ModuleManager {
         size: await this.calculateDirSize(moduleDir),
       };
 
+      // 7. Check for banner and icon files in module directory
+      const bannerFiles = ['banner.png', 'banner.jpg', 'banner.jpeg', 'banner.svg', 'banner.webp'];
+      const iconFiles = ['icon.png', 'icon.jpg', 'icon.jpeg', 'icon.svg', 'icon.webp', 'logo.png', 'logo.jpg', 'logo.jpeg', 'logo.svg', 'logo.webp'];
+      
+      // Find banner file
+      for (const filename of bannerFiles) {
+        const bannerPath = path.join(moduleDir, filename);
+        try {
+          await fs.access(bannerPath);
+          installation.banner = filename; // Store relative path
+          console.log('✅ Found banner:', filename);
+          break;
+        } catch (err) {
+          // File doesn't exist, try next
+        }
+      }
+      
+      // Find icon file (if not inline SVG in manifest)
+      if (!installation.icon || !installation.icon.startsWith('<svg')) {
+        for (const filename of iconFiles) {
+          const iconPath = path.join(moduleDir, filename);
+          try {
+            await fs.access(iconPath);
+            installation.icon = filename; // Store relative path
+            console.log('✅ Found icon:', filename);
+            break;
+          } catch (err) {
+            // File doesn't exist, try next
+          }
+        }
+      }
+
       // Save to store
       const installedModules = this.store.get('installed-modules', []);
       installedModules.push(installation);
@@ -424,17 +456,52 @@ class ModuleManager {
           // Validate manifest
           this.validateManifest(manifest);
           
+          // Check if this dev module already exists in memory (to preserve enabled state)
+          const existingModule = this.installedModules.get(manifest.id);
+          
           // Create a dev module entry
           const devModule = {
             ...manifest,
             installPath: modulePath,
             installedAt: new Date().toISOString(),
-            enabled: false,
+            enabled: existingModule?.isDev ? existingModule.enabled : false, // Preserve enabled state if it exists
             isDev: true, // Mark as dev module
             displayName: manifest.displayName || manifest.name,
             description: manifest.description || 'Development module',
             size: await this.calculateDirSize(modulePath),
           };
+          
+          // Check for banner and icon files in dev module directory
+          const bannerFiles = ['banner.png', 'banner.jpg', 'banner.jpeg', 'banner.svg', 'banner.webp'];
+          const iconFiles = ['icon.png', 'icon.jpg', 'icon.jpeg', 'icon.svg', 'icon.webp', 'logo.png', 'logo.jpg', 'logo.jpeg', 'logo.svg', 'logo.webp'];
+          
+          // Find banner file
+          for (const filename of bannerFiles) {
+            const bannerPath = path.join(modulePath, filename);
+            try {
+              await fs.access(bannerPath);
+              devModule.banner = filename; // Store relative path
+              console.log('✅ Found dev module banner:', filename);
+              break;
+            } catch (err) {
+              // File doesn't exist, try next
+            }
+          }
+          
+          // Find icon file (if not inline SVG in manifest)
+          if (!devModule.icon || !devModule.icon.startsWith('<svg')) {
+            for (const filename of iconFiles) {
+              const iconPath = path.join(modulePath, filename);
+              try {
+                await fs.access(iconPath);
+                devModule.icon = filename; // Store relative path
+                console.log('✅ Found dev module icon:', filename);
+                break;
+              } catch (err) {
+                // File doesn't exist, try next
+              }
+            }
+          }
           
           devModules.push(devModule);
           console.log('✅ Found dev module:', devModule.displayName);

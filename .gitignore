@@ -34,3 +34,6 @@ npm-debug.log*
 # Environment
 .env
 .env.local
+
+# Update configuration (contains sensitive tokens)
+src/config/update-config.js
