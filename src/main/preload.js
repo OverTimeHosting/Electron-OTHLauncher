@@ -3,6 +3,9 @@ const { contextBridge, ipcRenderer } = require('electron');
 // Expose protected methods that allow the renderer process to use
 // the ipcRenderer without exposing the entire object
 contextBridge.exposeInMainWorld('electronAPI', {
+  // Environment variables
+  getStoreUrl: () => process.env.OTH_STORE_URL || 'http://localhost:3000',
+
   // Connection and auth
   connectToStore: (credentials) => ipcRenderer.invoke('connect-to-store', credentials),
   getPendingCredentials: () => ipcRenderer.invoke('get-pending-credentials'),
@@ -22,7 +25,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // AI Chat
   openAIChat: () => ipcRenderer.invoke('open-ai-chat'),
   navigateMainWindow: (url) => ipcRenderer.invoke('navigate-main-window', url),
-  
+
+  // Registration
+  openRegisterWindow: () => ipcRenderer.invoke('open-register-window'),
+
   // Secure credential storage
   saveCredentials: (credentials) => ipcRenderer.invoke('save-credentials', credentials),
   getCredentials: () => ipcRenderer.invoke('get-credentials'),

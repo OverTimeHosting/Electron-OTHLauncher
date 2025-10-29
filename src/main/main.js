@@ -40,6 +40,7 @@ const store = new Store({
 
 let mainWindow;
 let aiChatWindow = null;
+let registerWindow = null;
 let discordPresence = null;
 let pendingLoginCredentials = null;
 let moduleManager = null;
@@ -2085,6 +2086,67 @@ ipcMain.handle('open-ai-chat', async () => {
   }
 });
 
+// Open Register window
+ipcMain.handle('open-register-window', async () => {
+  try {
+    // If window already exists, focus it
+    if (registerWindow && !registerWindow.isDestroyed()) {
+      registerWindow.focus();
+      return { success: true, message: 'Register window focused' };
+    }
+
+    // Create new Register window
+    const storeUrl = process.env.OTH_STORE_URL || 'http://localhost:3000';
+
+    registerWindow = new BrowserWindow({
+      width: 600,
+      height: 800,
+      backgroundColor: '#000000',
+      frame: false,
+      title: 'Create OTH Account',
+      icon: path.join(__dirname, '../../assets/company.png'),
+      parent: mainWindow,
+      modal: false,
+      show: false,
+      webPreferences: {
+        preload: path.join(__dirname, 'preload.js'),
+        contextIsolation: true,
+        nodeIntegration: false,
+        backgroundThrottling: false,
+        sandbox: false,
+      },
+      autoHideMenuBar: true,
+      darkTheme: true,
+    });
+
+    // Load the server's register page
+    registerWindow.loadURL(`${storeUrl}/register`);
+
+    // Show when ready
+    registerWindow.once('ready-to-show', () => {
+      registerWindow.show();
+      registerWindow.focus();
+    });
+
+    // Clean up when closed
+    registerWindow.on('closed', () => {
+      registerWindow = null;
+    });
+
+    // Enable F12 for DevTools
+    registerWindow.webContents.on('before-input-event', (event, input) => {
+      if (input.key === 'F12') {
+        registerWindow.webContents.toggleDevTools();
+      }
+    });
+
+    return { success: true, message: 'Register window opened' };
+  } catch (error) {
+    console.error('Failed to open register window:', error);
+    return { success: false, error: error.message };
+  }
+});
+
 // Window controls - handle the window that sent the event
 ipcMain.on('minimize-window', (event) => {
   const window = BrowserWindow.fromWebContents(event.sender);
@@ -2325,23 +2387,38 @@ function createWindow() {
       nodeIntegration: false,
       // Performance optimizations
       backgroundThrottling: false,
-      disableBlinkFeatures: '',
-      enableBlinkFeatures: 'LayoutInstabilityAPI',
       sandbox: false, // Better performance
     },
     autoHideMenuBar: true,
     darkTheme: true,
   });
 
-  // Configure session for performance
+  // Configure session for performance and security
   const ses = mainWindow.webContents.session;
-  
+
   // Enable caching
   ses.setPreloads([path.join(__dirname, 'preload.js')]);
-  
+
   // Preconnect to the store URL for faster loading
   const storeUrl = process.env.OTH_STORE_URL || 'http://localhost:3000';
   ses.preconnect({ url: storeUrl, numSockets: 4 });
+
+  // Set Content Security Policy
+  ses.webRequest.onHeadersReceived((details, callback) => {
+    callback({
+      responseHeaders: {
+        ...details.responseHeaders,
+        'Content-Security-Policy': [
+          "default-src 'self' " + storeUrl + "; " +
+          "script-src 'self' 'unsafe-inline' " + storeUrl + "; " +
+          "style-src 'self' 'unsafe-inline' " + storeUrl + "; " +
+          "img-src 'self' data: https: " + storeUrl + "; " +
+          "font-src 'self' data: " + storeUrl + "; " +
+          "connect-src 'self' " + storeUrl + " ws: wss:;"
+        ]
+      }
+    });
+  });
 
   // Note: Electron manages cache automatically, size is controlled via app.getPath('userData')
 

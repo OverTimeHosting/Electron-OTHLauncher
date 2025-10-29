@@ -31,7 +31,7 @@
     "mime-types": "^2.1.35"
   },
   "devDependencies": {
-    "electron": "^28.1.0",
+    "electron": "^35.7.5",
     "electron-builder": "^24.9.1"
   },
   "build": {

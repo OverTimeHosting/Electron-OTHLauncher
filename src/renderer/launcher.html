@@ -321,12 +321,11 @@
   </div>
 
   <div class="launcher-container">
-    <div class="logo">OTH</div>
-    <div class="subtitle">Desktop Client</div>
+    <div class="logo"></div>
 
     <div class="card">
       <div class="card-title hidden" id="cardTitle">Welcome Back</div>
-      <div class="card-description hidden" id="cardDescription">Sign in to your OTH account</div>
+      <div class="card-description hidden" id="cardDescription"></div>
 
       <form class="login-form hidden" id="loginForm">
         <div class="form-group">
@@ -413,7 +412,7 @@
         return { success: false, error: 'Unable to connect to authentication server' };
       }
     }
-    const STORE_URL = 'http://localhost:3000';
+    const STORE_URL = window.electronAPI ? window.electronAPI.getStoreUrl() : 'http://localhost:3000';
     const MAX_RETRY_DELAY = 30000; // Max 30 seconds between retries
     const INITIAL_RETRY_DELAY = 2000; // Start with 2 seconds
     let currentRetryDelay = INITIAL_RETRY_DELAY;
@@ -976,11 +975,16 @@
         }
       });
 
-      // Handle register link - open in default browser
-      registerLink.addEventListener('click', (e) => {
+      // Handle register link - open register window
+      registerLink.addEventListener('click', async (e) => {
         e.preventDefault();
-        // In a real implementation, you'd open the default browser
-        alert('Please visit https://your-oth-domain.com/register to create an account');
+        try {
+          if (window.electronAPI && window.electronAPI.openRegisterWindow) {
+            await window.electronAPI.openRegisterWindow();
+          }
+        } catch (error) {
+          console.error('Failed to open register window:', error);
+        }
       });
     }
 
